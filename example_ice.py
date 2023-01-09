@@ -1,5 +1,6 @@
 import numpy as np
 import netCDF4 as nc
+from array import *
 import math
 from compute_ice import compute_ice
 from compute_liq import compute_liq
@@ -9,6 +10,7 @@ from spec_util import planck, read_solar_spectrum
 # Yang [2013] library path
 # https://doi.org/10.1175/JAS-D-12-039.1
 # format: *.tar.gz file for FIR, Rough*.tar.gz for MIR.
+# This line is ignored if ./data/MIR and ./data.FIR contain required files
 path_ori = '/scratch/gpfs/jf7775/data/ice_optics_yang/' 
 
 # initialize parameterization size range for look-up-table and Padé approximantsize
@@ -21,9 +23,23 @@ re_range_pade[1,:] = [10, 50, 100] # Please check compute_ice module variable 'd
 re_ref_pade = np.zeros(np.shape(re_range_pade)[1],)
 
 # initialize longwave band limits that matches with rrtmgp gas optics
-file_rrtmgp = '/scratch/gpfs/jf7775/projects/rte-rrtmgp/rrtmgp/data/rrtmgp-data-lw-g128-210809.nc'
-data_rrtmgp = nc.Dataset(file_rrtmgp)
-band_limit = data_rrtmgp['bnd_limits_wavenumber'][:,:]
+band_limit = np.transpose([[  10.,  250.], 
+              [ 250.,  500.], 
+              [ 500.,  630.], 
+              [ 630.,  700.],
+              [ 700.,  820.], 
+              [ 820.,  980.], 
+              [ 980., 1080.], 
+              [1080., 1180.],
+              [1180., 1390.], 
+              [1390., 1480.], 
+              [1480., 1800.], 
+              [1800., 2080.],
+              [2080., 2250.], 
+              [2250., 2390.], 
+              [2390., 2680.], 
+              [2680., 3250.]])
+print(np.shape(band_limit))
 wavenum = np.arange(band_limit[0,0],band_limit[-1,-1],1)
 
 # initialize longwave source function
@@ -36,9 +52,21 @@ compute_ice(path_ori,'solid_column',50,\
 1,wavenum,source,band_limit,re_range_lut,re_range_pade,re_ref_pade,False)
 
 # initialize shortwave band limits that matches with rrtmgp gas optics
-file_rrtmgp = '/scratch/gpfs/jf7775/projects/rte-rrtmgp/rrtmgp/data/rrtmgp-data-sw-g224-2018-12-04.nc'
-data_rrtmgp = nc.Dataset(file_rrtmgp)
-band_limit = data_rrtmgp['bnd_limits_wavenumber'][:,:]
+band_limit = np.transpose([[  820., 2680.], 
+              [ 2680., 3250.], 
+              [ 3250., 4000.], 
+              [ 4000., 4650.],
+              [ 4650., 5150.], 
+              [ 5150., 6150.], 
+              [ 6150., 7700.], 
+              [ 7700., 8050.], 
+              [ 8050., 12850.], 
+              [12850., 16000.], 
+              [16000., 22650.], 
+              [22650., 29000.],
+              [29000., 38000.],
+              [38000., 50000.]])
+       
 wavenum = np.arange(band_limit[0,0],band_limit[-1,-1],10)
 # read-in shortwave spectrum
 wavenum_solar, solar = read_solar_spectrum()
