@@ -1,7 +1,5 @@
 from array import *
-import math
-
-from cloud_rad_scheme import compute_ice, compute_liq, planck, read_solar_spectrum
+from cloud_rad_scheme import compute_ice, planck, read_solar_spectrum
 import numpy as np
 import netCDF4 as nc
 from scipy.interpolate import interp1d
@@ -25,7 +23,7 @@ def main():
     re_ref_pade = np.zeros(np.shape(re_range_pade)[1],)
 
     # initialize longwave band limits that matches with rrtmgp gas optics
-    band_limit = np.transpose([[  10.,  250.], 
+    band_limit = np.array([[  10.,  250.], 
                                [ 250.,  500.], 
                                [ 500.,  630.], 
                                [ 630.,  700.],
@@ -55,7 +53,7 @@ def main():
                 re_ref_pade, False)
 
     # initialize shortwave band limits that matches with rrtmgp gas optics
-    band_limit = np.transpose([[  820., 2680.], 
+    band_limit = np.array([[  820., 2680.], 
                                [ 2680., 3250.], 
                                [ 3250., 4000.], 
                                [ 4000., 4650.],
