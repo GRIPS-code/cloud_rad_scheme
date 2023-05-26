@@ -134,7 +134,7 @@ def main():
 
     for i in range(nsize):
         ext_in[i,:] = 1.0E-02*a + b/r[i]
-        ssa_in[i,:] = 1.0 - c + d * r[i]
+        ssa_in[i,:] = 1.0 - (c + d * r[i])
         asy_in[i,:] = e + 1.0E-03* f * r[i]
         sca_in[i,:] = ext_in[i,:] * ssa_in[i,:]
 

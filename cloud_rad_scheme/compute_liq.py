@@ -3,7 +3,7 @@ import math
 import numpy as np
 from scipy.interpolate import interp1d
 
-from .cloud_optics import cloud_optics_var
+from .optics import optics_var
 from .spec_util import mie_coefficients, read_refractive_index
 
 
@@ -38,7 +38,7 @@ def compute_liq(file_lut, file_pade, a, wavenum_out, source, band_limit, re_rang
     asy_hres[asy_hres<0] = 0
 
     # integrate over droplet particle size distribution (PSD)
-    cloud_optics_outres = cloud_optics_var.gamma_int(wavenum_out, a,d_hres,v_hres,s_hres,d,dr,ext_hres,scat_hres,asy_hres,rau_liq)
+    cloud_optics_outres = optics_var.gamma_int(wavenum_out, a,d_hres,v_hres,s_hres,d,dr,ext_hres,scat_hres,asy_hres,rau_liq)
 
     if thin_flag==True:
         cloud_optics_band = cloud_optics_outres.thin_average(source,band_limit)

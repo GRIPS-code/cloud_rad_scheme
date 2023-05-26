@@ -128,7 +128,7 @@ def main():
 
     for i in range(nsize):
         ext_in[i,:] = a0fu[:nwav] + (a1fu[:nwav]/d[i])
-        ssa_in[i,:] = b0fu[:nwav] + b1fu[:nwav]*d[i] + b2fu[:nwav]*d[i]**2 + b3fu[:nwav]*d[i]**3
+        ssa_in[i,:] = 1-(b0fu[:nwav] + b1fu[:nwav]*d[i] + b2fu[:nwav]*d[i]**2 + b3fu[:nwav]*d[i]**3)
         asy_in[i,:] = c0fu[:nwav] + c1fu[:nwav]*d[i] + c2fu[:nwav]*d[i]**2 + c3fu[:nwav]*d[i]**3
         sca_in[i,:] = ext_in[i,:] * ssa_in[i,:]
 

@@ -2,7 +2,7 @@ import netCDF4 as nc
 import numpy as np
 from scipy.interpolate import interp1d
 
-from .cloud_optics import cloud_optics_var
+from .optics import optics_var
 from .read_yang_ice_library import read_yang_ice_library
 
 
@@ -36,7 +36,7 @@ def compute_ice(path_ori, habit, roughness, file_lut, file_pade, a, wavenum_out,
     asy_hres[asy_hres<0] = 0
 
     # integrate over ice particle size distribution (PSD)
-    cloud_optics_inres = cloud_optics_var.gamma_int(wavenum_in, a, d_hres, v_hres, s_hres, d, dr, ext_hres, scat_hres, asy_hres, rau_ice)
+    cloud_optics_inres = optics_var.gamma_int(wavenum_in, a, d_hres, v_hres, s_hres, d, dr, ext_hres, scat_hres, asy_hres, rau_ice)
     del ext_hres, scat_hres, asy_hres
     cloud_optics_outres = cloud_optics_inres.interp_cloud_optics(wavenum_out)
 
