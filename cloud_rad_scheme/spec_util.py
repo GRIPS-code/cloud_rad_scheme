@@ -69,9 +69,20 @@ def read_refractive_index(freq_out, path='./data/refractive_index'):
     n_new = interp1d(freq[:],n[:])(freq_out[:])  # Real part
     k_new = interp1d(freq[:],k[:])(freq_out[:])  # imaginary part
     m = n_new - k_new * 1j;    # following description in https://pypi.org/project/miepython/
-    # please be aware that in some codes, the imaginary part of the refractive index is defined positively
+    # please be aware that in some mie codes, the imaginary part of the refractive index is defined positively
     return m
 
+def read_refractive_index_aerosol(path='./data/aerosol/refractive_index_RH30'):
+    """loading refractive index http://www.philiplaven.com/p20.html
+       freq_out: output frequency um
+    """
+    data = np.loadtxt(path, skiprows=2)
+    freq = data[:, 0]
+    n = data[:, 2]
+    k = data[:, 3]
+    m = n - 1j*k
+    # please be aware that in some mie codes, the imaginary part of the refractive index is defined positively
+    return freq, m
 
 def mie_coefficients(wavenum, Re, A, m):
     """wavenum: cm-1, vector
