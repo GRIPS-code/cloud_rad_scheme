@@ -78,10 +78,10 @@ def main():
     asy_in = np.zeros((nsize,nwav))
 
     for i in range(nsize):
-        ext_in[i,:] = a0 + a1/d[i] + a2/d[i]**2
-        ssa_in[i,:] = 1.0E+00 -   (b0 + b1*d[i] + b2*d[i]**2 + b3*d[i]**3)
+        ext_in[i,:] = (a0 + a1/d[i] + a2/d[i]**2)*(b0 + b1*d[i] + b2*d[i]**2 + b3*d[i]**3)
+        ssa_in[i,:] = 0.0
 
-        asy_in[i,:] = 1
+        asy_in[i,:] = 1.0
         sca_in[i,:] = ext_in[i,:] * ssa_in[i,:]
 
     cloud_optics_in=optics_var(r, s, v,
@@ -93,7 +93,7 @@ def main():
                         'pade_ice_lw_fuliou1993_thick.nc',
                         source, 
                         band_limit,re_range_lut,
-                        re_range_pade, re_ref_pade, False)
+                        re_range_pade, re_ref_pade, True)
     
     ################################
     # initialize shortwave band limits that matches with rrtmgp gas optics

@@ -51,7 +51,8 @@ def main():
     asy_in = np.zeros((nsize,nwav))
 
     ext_in[:] = 0.1
-    sca_in[:] = 0.1
+    sca_in[:] = 0.0
+    asy_in[:] = 1.0
 
     cloud_optics_in=optics_var(r, s, v,
                ext_in, sca_in, ssa_in, asy_in, rau,
@@ -62,7 +63,7 @@ def main():
                         'pade_liq_lw_held_thick.nc',
                         source, 
                         band_limit,re_range_lut,
-                        re_range_pade, re_ref_pade, False)
+                        re_range_pade, re_ref_pade, True)
     
     ################################
     # initialize shortwave band limits that matches with rrtmgp gas optics

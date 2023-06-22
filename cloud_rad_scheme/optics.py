@@ -168,7 +168,7 @@ class optics_var(object):
         sca_out = np.zeros((nsize, nband))
         asy_out = np.zeros((nsize, nband))
         for i in range(nband):
-            id_wave = np.where(self.wavenum>=band_limit[i,0] & self.wavenum<=band_limit[i,1])
+            id_wave = np.where((self.wavenum[:]>=band_limit[i,0]) & (self.wavenum[:]<=band_limit[i,1]))
             ext_out[:,i] = convert_lblOD_to_band(source, self.ext,id_wave)
             sca_out[:,i] = convert_lblOD_to_band(source, self.sca,id_wave)
             asy_out[:,i] = convert_lblOD_to_band(source, self.asy,id_wave)
