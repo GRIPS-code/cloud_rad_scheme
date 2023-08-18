@@ -255,17 +255,26 @@ class optics_var(object):
                 for i in range(nband):
                     id = np.where((self.r>=re_range[0,k]) & (self.r<re_range[1,k]))
                     r_sample = self.r[id]
-                    f = np.polyfit(r_sample, np.squeeze(self.ext[id,i]), 1)
-                    lut_ext_a[k,i] = f[1]  # a + b*r
-                    lut_ext_b[k,i] = f[0]
+                    id = np.unique(id)
+                    if len(id)==1:
+                        lut_ext_a[k,i] = 0.
+                        lut_ext_b[k,i] = np.squeeze(self.ext[id,i])
+                        lut_ssa_a[k,i] = 0.
+                        lut_ssa_b[k,i] = np.squeeze(self.ssa[id,i])
+                        lut_asy_a[k,i] = 0.
+                        lut_asy_b[k,i] = np.squeeze(self.asy[id,i])             
+                    else:
+                        f = np.polyfit(r_sample, np.squeeze(self.ext[id,i]), 1)
+                        lut_ext_a[k,i] = f[1]  # a + b*r
+                        lut_ext_b[k,i] = f[0]
 
-                    f = np.polyfit(r_sample, np.squeeze(self.ssa[id,i]), 1)
-                    lut_ssa_a[k,i] = f[1]  # a + b*r
-                    lut_ssa_b[k,i] = f[0]
+                        f = np.polyfit(r_sample, np.squeeze(self.ssa[id,i]), 1)
+                        lut_ssa_a[k,i] = f[1]  # a + b*r
+                        lut_ssa_b[k,i] = f[0]
 
-                    f = np.polyfit(r_sample, np.squeeze(self.asy[id,i]), 1)
-                    lut_asy_a[k,i] = f[1]  # a + b*r
-                    lut_asy_b[k,i] = f[0]
+                        f = np.polyfit(r_sample, np.squeeze(self.asy[id,i]), 1)
+                        lut_asy_a[k,i] = f[1]  # a + b*r
+                        lut_asy_b[k,i] = f[0]
 
 
     def create_pade_coeff(self,re_range,re_ref,v_range,file_out):
