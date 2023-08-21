@@ -35,7 +35,7 @@ def compute_mie_aerosol_singlesize(mu,sigma,min_re,max_re,rau,wavenum,m):
     if dr<=(max_re-min_re)/10:
         dr = 0.01
     r_hres = np.append(np.array([]), np.arange(min_re, max_re, dr)) # droplet dimension
-
+    
     nr = len(r_hres)
     d_hres = 2*r_hres
     s_hres = np.zeros(np.shape(r_hres))

@@ -14,10 +14,10 @@ def main():
     path_ori = '/scratch/gpfs/jf7775/data/ice_optics_yang/' 
 
     # initialize parameterization size range for look-up-table and Padé approximantsize
-    re_range_lut = np.zeros((2, 15)) # look-up-table (piecewise linear coefficients) size range, micron
+    re_range_lut = np.zeros((2, 25)) # look-up-table (piecewise linear coefficients) size range, micron
     re_range_pade = np.zeros((2, 3)) # Padé approximantsize size range, micron
-    re_range_lut[0,:] = np.append(np.append([1.1, 2, 3, 5, 7], np.arange(10, 30, 5)), np.arange(40, 100, 10))
-    re_range_lut[1,:] = np.append(np.append([2, 3, 5, 7], np.arange(10, 30, 5)), np.arange(40, 110, 10))
+    re_range_lut[0,:] = np.append(np.append([1.1, 2, 3, 5, 7], np.arange(10, 30, 5)), np.arange(40, 200, 10))
+    re_range_lut[1,:] = np.append(np.append([2, 3, 5, 7], np.arange(10, 30, 5)), np.arange(40, 210, 10))
     re_range_pade[0,:] = [1.1, 10, 50]
     re_range_pade[1,:] = [10, 50, 100] # Please check compute_ice module variable 'd', if a wider range is required
     re_ref_pade = np.zeros(np.shape(re_range_pade)[1],)

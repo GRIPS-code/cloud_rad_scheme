@@ -70,9 +70,9 @@ def main():
     ssa_in = np.zeros((nsize,nwav))
     asy_in = np.zeros((nsize,nwav))
 
-    ext_in[0,:] = brn/rwc0 * (1-wrnf)
-    ssa_in[0,:] = 0.0
-    asy_in[0,:] = 1.0 #grn
+    ext_in[0,:] = brn/rwc0/1000 #* (1-wrnf)
+    ssa_in[0,:] = wrnf #0.0
+    asy_in[0,:] = grn #1.0 
     sca_in[0,:] = ext_in[0,:] * ssa_in[0,:]
 
     cloud_optics_in=optics_var(r, s, v,
@@ -144,7 +144,7 @@ def main():
     rcap = pow(r/500, 4.348E+00)
 
     for i in range(nsize):
-        ext_in[i,:] = 1.00E+03*1.505E+00/r[i] 
+        ext_in[i,:] = 1.505E+00/r[i] 
         ssa_in[i,:] = 1.0 - (a * rcap[i] * b)
         asy_in[i,:] = asymm
         sca_in[i,:] = ext_in[i,:] * ssa_in[i,:]

@@ -35,6 +35,19 @@ class optics_var(object):
         self.ssa = ssa # single-scattering albedo unitless
         self.asy = asy # asymmetry factor unitless
 
+    def load(self,file_in):
+        with nc.Dataset(file_in, mode='r', format='NETCDF4_CLASSIC') as ncfile:
+            self.wavenum = ncfile.wavenum
+            self.r = ncfile.r
+            self.v = ncfile.v
+            self.v = ncfile.v
+            self.s = ncfile.s
+            self.rau = ncfile.rau
+            self.ext = ncfile.ext
+            self.ssa = ncfile.ssa
+            self.asy = ncfile.asy
+            self.sca = self.ssa * self.ext
+
     def write_lut_spectralpoints(self,file_out):
         """generate piecewise-linear fit coefficients and write to a given path
            write look-up-table parameterization
@@ -45,6 +58,7 @@ class optics_var(object):
             # create Dimension
             ncfile.createDimension('Band', nband)
             ncfile.createDimension('Re', nr)
+            ncfile.createDimension('Constant', 1)
             # create Variable
             freq = ncfile.createVariable('freq', np.float32, ('Band'))
             freq.units = 'micrometer'
@@ -52,19 +66,28 @@ class optics_var(object):
             wavenum.units = 'cm-1'
             re = ncfile.createVariable('re', np.float32, ('Re'))
             re.units = 'micrometer'
+            v = ncfile.createVariable('v', np.float32, ('Re'))
+            v.units = 'micrometer**3'
+            s = ncfile.createVariable('s', np.float32, ('Re'))
+            s.units = 'micrometer**2'
             ext = ncfile.createVariable('ext', np.float32, ('Re','Band'))
             ext.units = 'm**2/g'
             ssa = ncfile.createVariable('ssa', np.float32, ('Re','Band'))
             ssa.units = 'unitless'
             asy = ncfile.createVariable('asy', np.float32, ('Re','Band'))
             asy.units = 'unitless'
+            rau = ncfile.createVariable('rau', np.float32, ('Constant'))
+            rau.units = 'g/m**3'
 
             wavenum[:] = self.wavenum
             freq[:] = cm_to_um/wavenum[:]
             re[:] = self.r
+            v[:] = self.v
+            s[:] = self.s
             ext[:] = self.ext
             ssa[:] = self.ssa
             asy[:] = self.asy
+            rau = self.rau
 
 
     def gamma_int(wavenum, a, d_in, v_in, s_in, d_out, dr, ext_cross_section_in, scat_cross_section_in, asy_in, rau):
@@ -80,13 +103,13 @@ class optics_var(object):
         for i in range(nsize):
             f = np.zeros(np.shape(scat_cross_section_in))
             f[:,:] = gamma.pdf(d_in,a[i],0,b[i])
-            int_f_over_r = np.sum(f[1,:] * dr)
-            int_f_over_v = np.sum(f[1,:] * v_in[:] * dr)
+            int_f_over_r = np.sum(f[0,:] * dr)
+            int_f_over_v = np.sum(f[0,:] * v_in[:] * dr)
             asy[i,:] = np.sum(f * asy_in * scat_cross_section_in * dr, axis=1)/np.sum(f * scat_cross_section_in * dr, axis = 1)
             ext[i,:] = np.sum(f * ext_cross_section_in * dr, axis=1)/int_f_over_v/rau * m_to_micron # m**2/m**3/g*m**3 = m**2/g
             sca[i,:] = np.sum(f * scat_cross_section_in * dr, axis=1)/int_f_over_v/rau * m_to_micron # m**2/m**3/g*m**3 = m**2/g
-            v[i] = np.sum(f[1,:] * v_in[:] * dr)/int_f_over_r # m**3
-            s[i] = np.sum(f[1,:] * s_in[:] * dr)/int_f_over_r # m**2
+            v[i] = np.sum(f[0,:] * v_in[:] * dr)/int_f_over_r # m**3
+            s[i] = np.sum(f[0,:] * s_in[:] * dr)/int_f_over_r # m**2
         r = v / s * 0.75 
         ssa = sca/ext
         result = optics_var(r, s, v, ext, sca, ssa, asy, rau, wavenum=wavenum)
@@ -257,12 +280,12 @@ class optics_var(object):
                     r_sample = self.r[id]
                     id = np.unique(id)
                     if len(id)==1:
-                        lut_ext_a[k,i] = 0.
-                        lut_ext_b[k,i] = np.squeeze(self.ext[id,i])
-                        lut_ssa_a[k,i] = 0.
-                        lut_ssa_b[k,i] = np.squeeze(self.ssa[id,i])
-                        lut_asy_a[k,i] = 0.
-                        lut_asy_b[k,i] = np.squeeze(self.asy[id,i])             
+                        lut_ext_a[k,i] = np.squeeze(self.ext[id,i])
+                        lut_ext_b[k,i] = 0.
+                        lut_ssa_a[k,i] = np.squeeze(self.ssa[id,i])
+                        lut_ssa_b[k,i] = 0.
+                        lut_asy_a[k,i] = np.squeeze(self.asy[id,i])             
+                        lut_asy_b[k,i] = 0.
                     else:
                         f = np.polyfit(r_sample, np.squeeze(self.ext[id,i]), 1)
                         lut_ext_a[k,i] = f[1]  # a + b*r

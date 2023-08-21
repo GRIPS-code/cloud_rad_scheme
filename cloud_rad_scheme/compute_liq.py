@@ -40,6 +40,8 @@ def compute_liq(file_lut, file_pade, a, wavenum_out, source, band_limit, re_rang
     # integrate over droplet particle size distribution (PSD)
     cloud_optics_outres = optics_var.gamma_int(wavenum_out, a,d_hres,v_hres,s_hres,d,dr,ext_hres,scat_hres,asy_hres,rau_liq)
 
+    print(cloud_optics_outres.r)
+    print(r)
     if thin_flag==True:
         cloud_optics_band = cloud_optics_outres.thin_average(source,band_limit)
     else:

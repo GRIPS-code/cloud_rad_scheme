@@ -97,3 +97,12 @@ def mie_coefficients(wavenum, Re, A, m):
     ext_cross_section = qext*A  # Extinction cross-section, um**2
     sca_cross_section = qsca*A  # scattering cross-section, um**2
     return ext_cross_section, sca_cross_section, asy
+
+def create_list(var_min,var_max,n=10):
+    result = np.array([var_min])
+    dr = var_min
+    while result[-1]<var_max:
+        if 2*n*dr<result[-1]:
+            dr = result[-1]/n
+        result = np.append(result, result[-1]+dr)
+    return result 
