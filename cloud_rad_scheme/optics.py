@@ -35,18 +35,19 @@ class optics_var(object):
         self.ssa = ssa # single-scattering albedo unitless
         self.asy = asy # asymmetry factor unitless
 
-    def load(self,file_in):
-        with nc.Dataset(file_in, mode='r', format='NETCDF4_CLASSIC') as ncfile:
-            self.wavenum = ncfile.wavenum
-            self.r = ncfile.r
-            self.v = ncfile.v
-            self.v = ncfile.v
-            self.s = ncfile.s
-            self.rau = ncfile.rau
-            self.ext = ncfile.ext
-            self.ssa = ncfile.ssa
-            self.asy = ncfile.asy
-            self.sca = self.ssa * self.ext
+    def load_from_nc(file_in):
+        ncfile = nc.Dataset(file_in,'r')
+        wavenum = ncfile.variables['wavenum'][:]
+        r = ncfile.variables['re'][:]
+        v = ncfile.variables['v'][:]
+        s = ncfile.variables['s'][:]
+        rau = ncfile.variables['rau'][:]
+        ext = ncfile.variables['ext'][:,:]
+        ssa = ncfile.variables['ssa'][:,:]
+        asy = ncfile.variables['asy'][:,:]
+        sca = ssa * ext
+        result = optics_var(r, s, v, ext, sca, ssa, asy, rau, wavenum=wavenum)
+        return result
 
     def write_lut_spectralpoints(self,file_out):
         """generate piecewise-linear fit coefficients and write to a given path
@@ -78,7 +79,6 @@ class optics_var(object):
             asy.units = 'unitless'
             rau = ncfile.createVariable('rau', np.float32, ('Constant'))
             rau.units = 'g/m**3'
-
             wavenum[:] = self.wavenum
             freq[:] = cm_to_um/wavenum[:]
             re[:] = self.r
