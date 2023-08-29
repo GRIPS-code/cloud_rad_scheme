@@ -18,19 +18,22 @@ def compute_rain(file_outres, file_lut, file_pade, a, wavenum_out, source, band_
     r = create_list(0.1,re_range_lut[-1,-1]*3,5) # droplet dimension
     nr = len(r)
     asy = np.zeros((nr,nwav))
-    ext = np.zeros((nr,nwav)) 
+    ext = np.zeros((nr,nwav))
     ssa = np.zeros((nr,nwav))
     sca = np.zeros((nr,nwav))
     r_out = np.zeros((nr,))
     v = np.zeros((nr,))
     s = np.zeros((nr,))
 
-    # Mie Theory & integrate over gamma PSD
-    for i in range(nr):
-        r_out[i], s[i], v[i], ext[i,:], sca[i,:], ssa[i,:], asy[i,:] = compute_mie_singlesize(a,2.0*r[i],rau,wavenum_out,m)
+    if not exists(file_outres):
+        # Mie Theory & integrate over gamma PSD
+        for i in range(nr):
+            r_out[i], s[i], v[i], ext[i,:], sca[i,:], ssa[i,:], asy[i,:] = compute_mie_singlesize(a,2.0*r[i],rau,wavenum_out,m)
 
-    optics_outres=optics_var(r_out, s, v, ext, sca, ssa, asy, rau, wavenum=wavenum_out)
-    optics_outres.write_lut_spectralpoints(file_outres)
+        optics_outres=optics_var(r_out, s, v, ext, sca, ssa, asy, rau, wavenum=wavenum_out)
+        optics_outres.write_lut_spectralpoints(file_outres)
+    else:
+        optics_outres=optics_var.load_from_nc(file_outres)
 
     if thin_flag==True:
         optics_band = optics_outres.thin_average(source,band_limit)
