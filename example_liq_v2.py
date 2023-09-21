@@ -4,14 +4,10 @@ from scipy.interpolate import interp1d
 
 def main():
     # initialize parameterization size range for look-up-table and Padé approximantsize
-    re_range_pade = np.zeros((2,6)) # Padé approximantsize size range, micron
-    tmp = create_list(0.2,5000,2.5)
-    re_range_lut = np.zeros((2,len(tmp)-2))
-    re_range_lut[0,:] = tmp[0:-2]
-    re_range_lut[1,:] = tmp[1:-1]
-    print(tmp[0:-2])
-    re_range_pade[0,:] = [0.2, 1., 10., 50., 100., 1000.]
-    re_range_pade[1,:] = [1., 10, 50, 100., 1000., 5000.] # Please check compute_liquid module variable 'd', if a wider range is required
+    re_range_pade = np.zeros((2,7)) # Padé approximantsize size range, micron
+    tmp = create_list(0.25,5000,2.5)
+    re_range_pade[0,:] = [0.2, 1., 5.,  15., 50., 100., 1000.]
+    re_range_pade[1,:] = [1., 5., 15., 50, 100., 1000., 17300.] # Please check compute_liquid module variable 'd', if a wider range is required
     re_ref_pade = np.zeros(np.shape(re_range_pade)[1],)
 
     # initialize longwave band limits that matches with rrtmgp gas optics
@@ -37,10 +33,11 @@ def main():
     source = planck(wavenum, 250) # use 250 K as a reference
     # generate parameterization for longwave liquid
     compute_rain('hres_rain_lw_mie_gamma_aeq12.nc',
-                 'lut_rain_lw_mie_gamma_aeq12_thick.nc',
+                 'band_rain_lw_mie_gamma_aeq12_thick.nc',
+                 'fit_rain_lw_mie_gamma_aeq12_thick.nc',
                 'pade_rain_lw_mie_gamma_aeq12_thick.nc',
-                12, wavenum, source, band_limit, re_range_lut, re_range_pade,
-                re_ref_pade, False)
+                12, wavenum, source, band_limit, re_range_pade,
+                re_ref_pade, True)
 
     # initialize shortwave band limits that matches with rrtmgp gas optics
     band_limit = np.array([[  820., 2680.],
@@ -64,9 +61,10 @@ def main():
 
     # generate parameterization for shortwave liquid
     compute_rain('hres_rain_sw_mie_gamma_aeq12.nc',
-                 'lut_rain_sw_mie_gamma_aeq12_thick.nc',
+                 'band_rain_sw_mie_gamma_aeq12_thick.nc',
+                 'fit_rain_sw_mie_gamma_aeq12_thick.nc',
                 'pade_rain_sw_mie_gamma_aeq12_thick.nc',
-                12, wavenum, source, band_limit, re_range_lut, re_range_pade,
+                12, wavenum, source, band_limit, re_range_pade,
                 re_ref_pade, False)
 
 if __name__ == "__main__":

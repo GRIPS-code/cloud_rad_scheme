@@ -110,12 +110,12 @@ def main():
     re_range_lut = np.zeros((2,3)) # look-up-table (piecewise linear coefficients) size range, micron
     re_range_lut[0,:] = [16.6, 100., 1000.]
     re_range_lut[1,:] = [100., 1000., 5000.]
-    re_range_pade=np.zeros((2,1))
-    re_range_pade[0,:] = [16.6]
-    re_range_pade[1,:] = [5000.]
+    re_range_pade=np.zeros((2,3))
+    re_range_pade[0,:] = [16.6, 100., 1000]
+    re_range_pade[1,:] = [100., 1000., 5000.]
     re_ref_pade = np.zeros(np.shape(re_range_pade)[1],)
 
-    r = np.array([16.6, 30., 50., 100., 200., 500., 1000., 2500., 5000.])
+    r = np.array([16.6, 20., 30., 40., 50., 100., 200., 300., 400., 500., 800., 1000., 1500., 2500., 3000., 4000., 5000.])
     s = np.power(r, 2) * math.pi
     v = np.power(r, 3) * math.pi * 4.0 / 3.0
 
@@ -145,7 +145,7 @@ def main():
 
     for i in range(nsize):
         ext_in[i,:] = 1.505E+00/r[i] 
-        ssa_in[i,:] = 1.0 - (a * rcap[i] * b)
+        ssa_in[i,:] = 1.0 - (a * rcap[i] ** b)
         asy_in[i,:] = asymm
         sca_in[i,:] = ext_in[i,:] * ssa_in[i,:]
 

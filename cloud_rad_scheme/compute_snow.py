@@ -6,47 +6,44 @@ from .spec_util import create_list
 from .optics import optics_var
 from .read_yang_ice_library import read_yang_ice_library
 
-def compute_snow(path_ori, habit, roughness, file_outres, file_lut, file_pade, a, wavenum_out, source,
+def compute_snow(path_ori, habit, roughness, file_outres, file_band, file_pade, a, wavenum_out, source,
                 band_limit, re_range_lut, re_range_pade, re_ref_pade, thin_flag):
     rau = 917*10**3 # ice density g/m**3
     nwav = len(wavenum_out)
-    r = create_list(1,10000)
+    r = create_list(1,10000,20)
     nr = len(r)
-    asy = np.zeros((nr,nwav))
-    ext = np.zeros((nr,nwav)) 
-    ssa = np.zeros((nr,nwav))
-    sca = np.zeros((nr,nwav))
     r_out = np.zeros((nr,))
     v = np.zeros((nr,))
     s = np.zeros((nr,))
 
     [wavenum_in, r_in, d_in, s_in, v_in, ext_cross_section_in, sca_cross_section_in, asy_in] =\
         read_yang_ice_library(path_ori, habit, roughness)
-    
+    nwav = len(wavenum_in)
+    asy = np.zeros((nr,nwav))
+    ext = np.zeros((nr,nwav)) 
+    ssa = np.zeros((nr,nwav))
+    sca = np.zeros((nr,nwav))
+    for i in range(nr):
+        r_out[i], s[i], v[i], ext[i,:], sca[i,:], ssa[i,:], asy[i,:] = compute_Yang_singlesize(a,2.0*r[i],rau,wavenum_in,wavenum_in,d_in, s_in, v_in, ext_cross_section_in, sca_cross_section_in, asy_in)
+    optics_outres=optics_var(r_out, s, v, ext, sca, ssa, asy, rau, wavenum=wavenum_in)
+    optics_outres.write_lut_spectralpoints(file_outres)
+
+    nwav = len(wavenum_out)
+    asy = np.zeros((nr,nwav))
+    ext = np.zeros((nr,nwav)) 
+    ssa = np.zeros((nr,nwav))
+    sca = np.zeros((nr,nwav))
     # Mie Theory & integrate over gamma PSD
     for i in range(nr):
         r_out[i], s[i], v[i], ext[i,:], sca[i,:], ssa[i,:], asy[i,:] = compute_Yang_singlesize(a,2.0*r[i],rau,wavenum_out,wavenum_in,d_in, s_in, v_in, ext_cross_section_in, sca_cross_section_in, asy_in)
-
     optics_outres=optics_var(r_out, s, v, ext, sca, ssa, asy, rau, wavenum=wavenum_out)
-    optics_outres.write_lut_spectralpoints(file_outres)
+
     if thin_flag==True:
         optics_band = optics_outres.thin_average(source,band_limit)
     else:
         optics_band = optics_outres.thick_average(source,band_limit)
+    optics_band.write_lut_spectralpoints(file_band)
     
-    v_range = np.zeros(np.shape(re_range_lut))
-    try:
-        v_range[0,:] = interp1d(optics_band.r,optics_band.v**(1/3.0))(re_range_lut[0,:])**3
-    except:
-        print('WARNING: look-up-table size range re_range exceeds lower-limit at '+'{:4.1f}'.format(optics_band.r[0])+' microns')
-        v_range[0,:] = interp1d(optics_band.r,optics_band.v**(1/3.0),fill_value="extrapolate")(re_range_lut[0,:])**3
-    try:
-        v_range[1,:] = interp1d(optics_band.r,optics_band.v**(1/3.0))(re_range_lut[1,:])**3
-    except:
-        print('WARNING: look-up-table size range re_range exceeds upper-limit at '+'{:4.1f}'.format(optics_band.r[-1])+' microns')
-        v_range[1,:] = interp1d(optics_band.r,optics_band.v**(1/3.0),fill_value="extrapolate")(re_range_lut[1,:])**3
-    # output parameterization netcdf file following piece-wise linear interpolation
-    optics_band.create_lut_coeff(re_range_lut,v_range,file_lut)
     v_range = np.zeros(np.shape(re_range_pade))
     try:
         v_range[0,:] = interp1d(optics_band.r,optics_band.v**(1/3.0))(re_range_pade[0,:])**3
@@ -64,7 +61,7 @@ def compute_snow(path_ori, habit, roughness, file_outres, file_lut, file_pade, a
 
 def compute_Yang_singlesize(a,d,rau,wavenum_out,wavenum_in,d_in, s_in, v_in, ext_cross_section_in, sca_cross_section_in, asy_in):
     nwav = len(wavenum_in)
-    dr = d/10.0 # um, integrate step of particle size
+    dr = min(d/100.0,1) # um, integrate step of particle size
     d_hres = np.append(np.array([]), np.arange(dr, d*3.5, dr)) # radius
     d = np.array([d])
 

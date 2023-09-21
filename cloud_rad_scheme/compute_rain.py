@@ -5,9 +5,9 @@ from scipy.interpolate import interp1d
 
 from .optics import optics_var
 from .spec_util import mie_coefficients, read_refractive_index, create_list
+from os.path import exists
 
-
-def compute_rain(file_outres, file_lut, file_pade, a, wavenum_out, source, band_limit, re_range_lut,
+def compute_rain(file_outres, file_band, file_curvefit, file_pade, a, wavenum_out, source, band_limit, 
                 re_range_pade, re_ref_pade, thin_flag):
     rau = 996*10**3 # droplet density g/m**3
     cm_to_um = 10**4
@@ -15,7 +15,7 @@ def compute_rain(file_outres, file_lut, file_pade, a, wavenum_out, source, band_
     m = read_refractive_index(freq)
     nwav = len(wavenum_out)
 
-    r = create_list(0.1,re_range_lut[-1,-1]*3,5) # droplet dimension
+    r = create_list(0.1,re_range_pade[-1,-1]*3,5) # droplet dimension
     nr = len(r)
     asy = np.zeros((nr,nwav))
     ext = np.zeros((nr,nwav))
@@ -39,20 +39,8 @@ def compute_rain(file_outres, file_lut, file_pade, a, wavenum_out, source, band_
         optics_band = optics_outres.thin_average(source,band_limit)
     else:
         optics_band = optics_outres.thick_average(source,band_limit)
+    optics_band.write_lut_spectralpoints(file_band)
     
-    v_range = np.zeros(np.shape(re_range_lut))
-    try:
-        v_range[0,:] = interp1d(optics_band.r,optics_band.v**(1/3.0))(re_range_lut[0,:])**3
-    except:
-        print('WARNING: look-up-table size range re_range exceeds lower-limit at '+'{:4.1f}'.format(optics_band.r[0])+' microns')
-        v_range[0,:] = interp1d(optics_band.r,optics_band.v**(1/3.0),fill_value="extrapolate")(re_range_lut[0,:])**3
-    try:
-        v_range[1,:] = interp1d(optics_band.r,optics_band.v**(1/3.0))(re_range_lut[1,:])**3
-    except:
-        print('WARNING: look-up-table size range re_range exceeds upper-limit at '+'{:4.1f}'.format(optics_band.r[-1])+' microns')
-        v_range[1,:] = interp1d(optics_band.r,optics_band.v**(1/3.0),fill_value="extrapolate")(re_range_lut[1,:])**3
-    # output parameterization netcdf file following piece-wise linear interpolation
-    optics_band.create_lut_coeff(re_range_lut,v_range,file_lut)
     v_range = np.zeros(np.shape(re_range_pade))
     try:
         v_range[0,:] = interp1d(optics_band.r,optics_band.v**(1/3.0))(re_range_pade[0,:])**3

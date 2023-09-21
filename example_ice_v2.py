@@ -14,13 +14,13 @@ def main():
     path_ori = '/scratch/gpfs/jf7775/data/ice_optics_yang/' 
 
     # initialize parameterization size range for look-up-table and Padé approximantsize
-    re_range_pade = np.zeros((2,4)) # Padé approximantsize size range, micron
+    re_range_pade = np.zeros((2,5)) # Padé approximantsize size range, micron
     tmp = create_list(10.,700., 5.)
     re_range_lut = np.zeros((2,len(tmp)-2))
     re_range_lut[0,:] = tmp[0:-2]
     re_range_lut[1,:] = tmp[1:-1]
-    re_range_pade[0,:] = [1.5, 10., 50., 200.,]
-    re_range_pade[1,:] = [10., 50., 200., 700.] 
+    re_range_pade[0,:] = [2.5,  15., 50., 100., 1000.]
+    re_range_pade[1,:] = [15., 50., 100., 1000., 5000.] 
     re_ref_pade = np.zeros(np.shape(re_range_pade)[1],)
 
     # initialize longwave band limits that matches with rrtmgp gas optics
@@ -47,12 +47,12 @@ def main():
     source = planck(wavenum, 250)
 
     # generate parameterization for longwave ice
-    compute_snow(path_ori, 'solid_bullet_rosette', 50,
-                'hres_ice_lw_solid_bullet_rosette_severlyroughen_gamma_aeq1.nc',
-                'lut_ice_lw_solid_bullet_rosette_severlyroughen_gamma_aeq1_thick.nc',
-                'pade_ice_lw_solid_bullet_rosette_severlyroughen_gamma_aeq1_thick.nc',
+    compute_snow(path_ori, 'solid_column', 50,
+                'hres_ice_lw_solid_column_severlyroughen_gamma_aeq1.nc',
+                'lut_ice_lw_solid_column_severlyroughen_gamma_aeq1_thick.nc',
+                'pade_ice_lw_solid_column_severlyroughen_gamma_aeq1_thick.nc',
                 1, wavenum, source, band_limit, re_range_lut, re_range_pade,
-                re_ref_pade, False)
+                re_ref_pade, True)
 
     # initialize shortwave band limits that matches with rrtmgp gas optics
     band_limit = np.array([[  820., 2680.], 
@@ -76,10 +76,10 @@ def main():
     source = interp1d(wavenum_solar[:], solar[:])(wavenum[:])
 
     # generate parameterization for shortwave ice
-    compute_snow(path_ori, 'solid_bullet_rosette', 50,
-                'hres_ice_sw_solid_bullet_rosette_severlyroughen_gamma_aeq1.nc',
-                'lut_ice_sw_solid_bullet_rosette_severlyroughen_gamma_aeq1_thick.nc',
-                'pade_ice_sw_solid_bullet_rosette_severlyroughen_gamma_aeq1_thick.nc',
+    compute_snow(path_ori, 'solid_column', 50,
+                'hres_ice_sw_solid_column_severlyroughen_gamma_aeq1.nc',
+                'lut_ice_sw_solid_column_severlyroughen_gamma_aeq1_thick.nc',
+                'pade_ice_sw_solid_column_severlyroughen_gamma_aeq1_thick.nc',
                 1, wavenum, source, band_limit, re_range_lut, re_range_pade,
                 re_ref_pade,False)
 

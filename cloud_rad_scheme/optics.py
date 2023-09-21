@@ -3,6 +3,7 @@ import math
 import netCDF4 as nc
 import numpy as np
 from scipy.interpolate import CubicSpline
+from scipy.interpolate import interp1d
 from scipy.optimize import curve_fit
 from scipy.stats import gamma
 
@@ -53,7 +54,10 @@ class optics_var(object):
         """generate piecewise-linear fit coefficients and write to a given path
            write look-up-table parameterization
         """
-        nband = len(self.wavenum)
+        try:
+            nband = len(self.wavenum)
+        except:
+            nband = np.shape(self.band_limit)[0]
         nr = len(self.r)
         with nc.Dataset(file_out, mode='w', format='NETCDF4_CLASSIC') as ncfile:
             # create Dimension
@@ -61,10 +65,20 @@ class optics_var(object):
             ncfile.createDimension('Re', nr)
             ncfile.createDimension('Constant', 1)
             # create Variable
-            freq = ncfile.createVariable('freq', np.float32, ('Band'))
-            freq.units = 'micrometer'
-            wavenum = ncfile.createVariable('wavenum', np.float32, ('Band'))
-            wavenum.units = 'cm-1'
+            try:
+                wavenum = ncfile.createVariable('wavenum', np.float32, ('Band'))
+                wavenum.units = 'cm-1'
+                freq = ncfile.createVariable('freq', np.float32, ('Band'))
+                freq.units = 'micrometer'
+                wavenum[:] = self.wavenum
+                freq[:] = cm_to_um/wavenum[:]
+            except:
+                Band_limits_lwr = ncfile.createVariable('Band_limits_lwr', np.float32, ('Band',))
+                Band_limits_lwr.units = 'cm-1'
+                Band_limits_upr = ncfile.createVariable('Band_limits_upr', np.float32, ('Band',))
+                Band_limits_upr.units = 'cm-1'
+                Band_limits_lwr[:] = self.band_limit[:,0]
+                Band_limits_upr[:] = self.band_limit[:,1]
             re = ncfile.createVariable('re', np.float32, ('Re'))
             re.units = 'micrometer'
             v = ncfile.createVariable('v', np.float32, ('Re'))
@@ -79,8 +93,6 @@ class optics_var(object):
             asy.units = 'unitless'
             rau = ncfile.createVariable('rau', np.float32, ('Constant'))
             rau.units = 'g/m**3'
-            wavenum[:] = self.wavenum
-            freq[:] = cm_to_um/wavenum[:]
             re[:] = self.r
             v[:] = self.v
             s[:] = self.s
@@ -144,9 +156,9 @@ class optics_var(object):
         ssa_out = np.zeros((nsize, nwav))
         asy_out = np.zeros((nsize, nwav))
         for i in range(nsize):
-            ext_out[i,:] = CubicSpline(self.wavenum, self.ext[i,:])(wavenum_out)
-            ssa_out[i,:] = CubicSpline(self.wavenum, self.ssa[i,:])(wavenum_out)
-            asy_out[i,:] = CubicSpline(self.wavenum, self.asy[i,:])(wavenum_out)
+            ext_out[i,:] = interp1d(self.wavenum, self.ext[i,:],fill_value="extrapolate")(wavenum_out)
+            ssa_out[i,:] = interp1d(self.wavenum, self.ext[i,:]*self.ssa[i,:],fill_value="extrapolate")(wavenum_out)/ext_out[i,:]
+            asy_out[i,:] = interp1d(self.wavenum, self.ext[i,:]*self.ssa[i,:]*self.asy[i,:],fill_value="extrapolate")(wavenum_out)/ext_out[i,:]/ssa_out[i,:]
         sca_out = ssa_out * ext_out
         result = optics_var(self.r, self.s, self.v,
                                   ext_out, sca_out, ssa_out, asy_out,self.rau,
@@ -299,7 +311,6 @@ class optics_var(object):
                         lut_asy_a[k,i] = f[1]  # a + b*r
                         lut_asy_b[k,i] = f[0]
 
-
     def create_pade_coeff(self,re_range,re_ref,v_range,file_out):
         """generate Padé approximantsize coefficients and write to a given path
            write look-up-table parameterization
@@ -350,42 +361,64 @@ class optics_var(object):
             Particle_Volume_limits_lwr[:] = v_range[0,:]
             Particle_Volume_limits_upr[:] = v_range[1,:]
 
-            def pade(x, p1, p2, p3, q1, q2, q3):
-                return (p3 + p2*x + p1*x**2)/(q3 + q2*x + q1*x**2)
+            re_range[0,0] = re_range[0,0]
 
+            def pade(x, p1, p2, p3, q1, q2, q3):
+                return ((p3) + (p2)*x + (p1)*x**2)/((q3) + (q2)*x + (q1)*x**2)
+            def pade_abs(x, p1, p2, p3, q1, q2, q3):
+                return ((p3) + (p2)*x + (p1)*x**2)/(abs(q3)+ abs(q2)*x + abs(q1)*x**2)
+            def pade_2p2q_abs(x, p2, p3, q2,q3):
+                return (p3 + p2*x)/(abs(q3) + abs(q2)*x)
+            def pade_2p2q(x, p2, p3, q2,q3):
+                return (p3 + p2*x)/(q3+ q2*x)
+            def piecewise(x,y):
+                f1 = (y[-1]-y[0])/(x[-1]-x[0])
+                f2 = y[0] - f1*x[0]
+                return [f1,f2]
             for k in range(nr):
                 for i in range(nband):
                     id = np.where((self.r>=re_range[0,k]) & (self.r<re_range[1,k]))
                     r_sample = self.r[id]
                     try:
-                        tmp, cov = curve_fit(pade, r_sample-re_ref[k], np.squeeze(self.ext[id,i]))
-                        pade_ext_p[:,k,i] = tmp[:3]
-                        pade_ext_q[:,k,i] = tmp[3:]
+                        tmp, cov = curve_fit(pade_abs, r_sample-re_ref[k], np.squeeze(self.ext[id,i]))
+                        pade_ext_p[:,k,i] = (tmp[:3])
+                        pade_ext_q[:,k,i] = abs(tmp[3:])
                     except:
-                        # too much degree-of-freedom. using linear fit instead
-                        f = np.polyfit(r_sample, np.squeeze(self.ext[id,i]), 1)
-                        pade_ext_p[:,k,i] = [0, f[0], f[1]]  # a + b*r
-                        pade_ext_q[:,k,i] = [0, 0, 1]
+                        try:
+                            tmp, cov = curve_fit(pade, r_sample-re_ref[k], np.squeeze(self.ext[id,i]))
+                            pade_ext_p[:,k,i] = (tmp[:3])
+                            pade_ext_q[:,k,i] = (tmp[3:])
+                        except:
+                            tmp, cov = curve_fit(pade_2p2q_abs, r_sample-re_ref[k], np.squeeze(self.ext[id,i]))
+                            pade_ext_p[:,k,i] = [0, (tmp[0]), (tmp[1])]
+                            pade_ext_q[:,k,i] = [0, abs(tmp[2]), abs(tmp[3])]
+                            # too much degree-of-freedom. using linear fit instead
+                            #f = piecewise(r_sample, np.squeeze(self.ext[id,i]))
+                            #pade_ext_p[:,k,i] = [0, f[0], f[1]]  # a + b*r
+                            #pade_ext_q[:,k,i] = [0, 0, 1]
 
                     try:
-                        tmp, cov = curve_fit(pade, r_sample-re_ref[k], np.squeeze(self.ssa[id,i]))
-                        pade_ssa_p[:,k,i] = tmp[:3]
-                        pade_ssa_q[:,k,i] = tmp[3:]
+                        tmp, cov = curve_fit(pade_abs, r_sample-re_ref[k], 1-np.squeeze(self.ssa[id,i]))
+                        pade_ssa_p[:,k,i] = abs(tmp[3:])-(tmp[:3])
+                        pade_ssa_q[:,k,i] = abs(tmp[3:])
                     except:
                         # too much degree-of-freedom. using linear fit instead
-                        f = np.polyfit(r_sample, np.squeeze(self.ssa[id,i]), 1)
+                        f = piecewise(r_sample, np.squeeze(self.ssa[id,i]))
                         pade_ssa_p[:,k,i] = [0, f[0], f[1]]  # a + b*r
                         pade_ssa_q[:,k,i] = [0, 0, 1]
 
                     try:
-                        tmp, cov = curve_fit(pade, r_sample-re_ref[k], np.squeeze(self.asy[id,i]))
-                        pade_asy_p[:,k,i] = tmp[:3]
-                        pade_asy_q[:,k,i] = tmp[3:]
+                        tmp, cov = curve_fit(pade_abs, r_sample-re_ref[k], 1-np.squeeze(self.asy[id,i]))
+                        pade_asy_p[:,k,i] = abs(tmp[3:])-(tmp[:3])
+                        pade_asy_q[:,k,i] = abs(tmp[3:])
                     except:
                         # too much degree-of-freedom. using linear fit instead
-                        f = np.polyfit(r_sample,np.squeeze(self.asy[id,i]),1)
-                        pade_asy_p[:,k,i] = [0, f[0], f[1]]  # a + b*r
-                        pade_asy_q[:,k,i] = [0, 0, 1]
+                        tmp, cov = curve_fit(pade_2p2q_abs, r_sample-re_ref[k], 1-np.squeeze(self.asy[id,i]))
+                        pade_asy_p[:,k,i] = [0, abs(tmp[2])-tmp[0], abs(tmp[3])-tmp[1]]
+                        pade_asy_q[:,k,i] = [0, abs(tmp[2]), abs(tmp[3])]
+                        #f = np.polyfit(r_sample,np.squeeze(self.asy[id,i]),1)
+                        #pade_asy_p[:,k,i] = [0, f[0], f[1]]  # a + b*r
+                        #pade_asy_q[:,k,i] = [0, 0, 1]
 
 def lognormpdf(x,mu,sigma):
     y = 1.0/x/sigma/math.sqrt(2*math.pi) * np.exp(-1.0/2.0*(np.log(x/mu)/sigma)**2)
