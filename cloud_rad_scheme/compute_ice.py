@@ -1,22 +1,79 @@
+import math
 import netCDF4 as nc
 import numpy as np
 from scipy.interpolate import interp1d
-
+from .spec_util import create_list
 from .optics import optics_var
 from .read_yang_ice_library import read_yang_ice_library
 
-
-def compute_ice(path_ori, habit, roughness, file_lut, file_pade, a, wavenum_out, source,
-                band_limit, re_range_lut, re_range_pade, re_ref_pade, thin_flag):
-    rau_ice = 917*10**3 # ice density g/m**3
-    dr = 0.1 # um, integrate step of ice particle size
-    d = np.append(np.append(np.arange(1, 20,0.2), np.arange(22, 200, 2)), np.arange(210, 1000, 10)) # ice dimension
-    a = np.repeat(a, len(d), axis=0)
+def compute_ice(path_ori, habit, roughness, file_outres, file_band, file_pade, a, wavenum_out, source,
+                band_limit, re_range_pade, re_ref_pade, thin_flag):
+    rau = 917*10**3 # ice density g/m**3
+    nwav = len(wavenum_out)
+    r = create_list(1,10000,20)
+    nr = len(r)
+    r_out = np.zeros((nr,))
+    v = np.zeros((nr,))
+    s = np.zeros((nr,))
 
     [wavenum_in, r_in, d_in, s_in, v_in, ext_cross_section_in, sca_cross_section_in, asy_in] =\
         read_yang_ice_library(path_ori, habit, roughness)
-    # linearly interpolate the library into a higher resolution
-    d_hres = np.arange(dr*2, d_in[-1], dr*2)
+    nwav = len(wavenum_in)
+    asy = np.zeros((nr,nwav))
+    ext = np.zeros((nr,nwav)) 
+    ssa = np.zeros((nr,nwav))
+    sca = np.zeros((nr,nwav))
+    for i in range(nr):
+        r_out[i], s[i], v[i], ext[i,:], sca[i,:], ssa[i,:], asy[i,:] = compute_Yang_singlesize(a,2.0*r[i],rau,wavenum_in,wavenum_in,d_in, s_in, v_in, ext_cross_section_in, sca_cross_section_in, asy_in)
+    optics_outres=optics_var(r_out, s, v, ext, sca, ssa, asy, rau, wavenum=wavenum_in)
+    optics_outres.write_lut_spectralpoints(file_outres)
+
+    nwav = len(wavenum_out)
+    asy = np.zeros((nr,nwav))
+    ext = np.zeros((nr,nwav)) 
+    ssa = np.zeros((nr,nwav))
+    sca = np.zeros((nr,nwav))
+    # Mie Theory & integrate over gamma PSD
+    for i in range(nr):
+        r_out[i], s[i], v[i], ext[i,:], sca[i,:], ssa[i,:], asy[i,:] = compute_Yang_singlesize(a,2.0*r[i],rau,wavenum_out,wavenum_in,d_in, s_in, v_in, ext_cross_section_in, sca_cross_section_in, asy_in)
+    optics_outres=optics_var(r_out, s, v, ext, sca, ssa, asy, rau, wavenum=wavenum_out)
+
+    if thin_flag==True:
+        optics_band = optics_outres.thin_average(source,band_limit)
+    else:
+        optics_band = optics_outres.thick_average(source,band_limit)
+    optics_band.write_lut_spectralpoints(file_band)
+    
+    v_range = np.zeros(np.shape(re_range_pade))
+    try:
+        v_range[0,:] = interp1d(optics_band.r,optics_band.v**(1/3.0))(re_range_pade[0,:])**3
+    except:
+        print('WARNING: Padé approximant size range re_range exceeds lower-limit at '+'{:4.1f}'.format(optics_band.r[0])+' microns')
+        v_range[0,:] = interp1d(optics_band.r,optics_band.v**(1/3.0),fill_value="extrapolate")(re_range_pade[0,:])**3
+    try:
+        v_range[1,:] = interp1d(optics_band.r,optics_band.v**(1/3.0))(re_range_pade[1,:])**3
+    except:
+        print('WARNING: Padé approximant size range re_range exceeds upper-limit at '+'{:4.1f}'.format(optics_band.r[-1])+' microns')
+        v_range[1,:] = interp1d(optics_band.r,optics_band.v**(1/3.0),fill_value="extrapolate")(re_range_pade[1,:])**3
+    # output parameterization netcdf file following Padé approximant
+    optics_band.create_pade_coeff(re_range_pade,re_ref_pade,v_range,file_pade)
+
+
+def compute_Yang_singlesize(a,d,rau,wavenum_out,wavenum_in,d_in, s_in, v_in, ext_cross_section_in, sca_cross_section_in, asy_in):
+    nwav = len(wavenum_in)
+    dr = min(d/100.0,1) # um, integrate step of particle size
+    d_hres = np.append(np.array([]), np.arange(dr, d*3.5, dr)) # radius
+    d = np.array([d])
+
+    nr = len(d_hres)
+    r_hres = d_hres/2.0
+    s_hres = np.zeros(np.shape(r_hres))
+    v_hres = np.zeros(np.shape(r_hres))
+
+    ext_hres = np.zeros((nwav,nr))
+    scat_hres = np.zeros((nwav,nr))
+    asy_hres = np.zeros((nwav,nr))
+
     try:
         v_hres = interp1d(d_in[:], v_in[:]**(1/3.0))(d_hres[:])**3.0
         s_hres = interp1d(d_in[:], s_in[:]**(1/2.0))(d_hres[:])**2.0
@@ -35,40 +92,14 @@ def compute_ice(path_ori, habit, roughness, file_lut, file_pade, a, wavenum_out,
     scat_hres[scat_hres<0] = 0
     asy_hres[asy_hres<0] = 0
 
-    # integrate over ice particle size distribution (PSD)
-    cloud_optics_inres = optics_var.gamma_int(wavenum_in, a, d_hres, v_hres, s_hres, d, dr, ext_hres, scat_hres, asy_hres, rau_ice)
-    del ext_hres, scat_hres, asy_hres
-    cloud_optics_outres = cloud_optics_inres.interp_cloud_optics(wavenum_out)
-
-    if thin_flag == True:
-        cloud_optics_band = cloud_optics_outres.thin_average(source, band_limit)
-    else:
-        cloud_optics_band = cloud_optics_outres.thick_average(source, band_limit)
-
-    v_range = np.zeros(np.shape(re_range_lut))
-    try:
-        v_range[0,:] = interp1d(cloud_optics_band.r, cloud_optics_band.v**(1/3.0))(re_range_lut[0,:])**3
-    except:
-        print('WARNING: look-up-table size range re_range exceeds lower-limit at '+'{:4.1f}'.format(cloud_optics_band.r[0])+' microns')
-        v_range[0,:] = interp1d(cloud_optics_band.r,cloud_optics_band.v**(1/3.0),fill_value="extrapolate")(re_range_lut[0,:])**3
-    try:
-        v_range[1,:] = interp1d(cloud_optics_band.r,cloud_optics_band.v**(1/3.0))(re_range_lut[1,:])**3
-    except:
-        print('WARNING: look-up-table size range re_range exceeds upper-limit at '+'{:4.1f}'.format(cloud_optics_band.r[-1])+' microns')
-        v_range[1,:] = interp1d(cloud_optics_band.r,cloud_optics_band.v**(1/3.0),fill_value="extrapolate")(re_range_lut[1,:])**3
-    # output parameterization netcdf file following piece-wise linear interpolation
-    cloud_optics_band.create_lut_coeff(re_range_lut,v_range,file_lut)
-
-    v_range = np.zeros(np.shape(re_range_pade))
-    try:
-        v_range[0,:] = interp1d(cloud_optics_band.r,cloud_optics_band.v**(1/3.0))(re_range_pade[0,:])**3
-    except:
-        print('WARNING: Padé approximant size range re_range exceeds lower-limit at '+'{:4.1f}'.format(cloud_optics_band.r[0])+' microns')
-        v_range[0,:] = interp1d(cloud_optics_band.r,cloud_optics_band.v**(1/3.0),fill_value="extrapolate")(re_range_pade[0,:])**3
-    try:
-        v_range[1,:] = interp1d(cloud_optics_band.r,cloud_optics_band.v**(1/3.0))(re_range_pade[1,:])**3
-    except:
-        print('WARNING: Padé approximant size range re_range exceeds upper-limit at '+'{:4.1f}'.format(cloud_optics_band.r[-1])+' microns')
-        v_range[1,:] = interp1d(cloud_optics_band.r,cloud_optics_band.v**(1/3.0),fill_value="extrapolate")(re_range_pade[1,:])**3
-    # output parameterization netcdf file following Padé approximant
-    cloud_optics_band.create_pade_coeff(re_range_pade,re_ref_pade,v_range,file_pade)
+    a = np.array([a])
+    optics_inres = optics_var.gamma_int(wavenum_in, a, d_hres,v_hres,s_hres,d,dr,ext_hres,scat_hres,asy_hres,rau)
+    optics_singlepsd = optics_inres.interp_cloud_optics(wavenum_out)
+    r_out = optics_singlepsd.r
+    s = optics_singlepsd.s
+    v = optics_singlepsd.v 
+    ext = optics_singlepsd.ext
+    sca = optics_singlepsd.sca
+    ssa = optics_singlepsd.ssa
+    asy  = optics_singlepsd.asy
+    return r_out, s, v, ext, sca, ssa, asy

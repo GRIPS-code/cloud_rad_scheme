@@ -32,10 +32,11 @@ def main():
     # initialize longwave source function
     source = planck(wavenum, 250) # use 250 K as a reference
     # generate parameterization for longwave liquid
-    compute_liq('ecckd_lut_liq_lw_mie_gamma_aeq12_thick.nc',
+    compute_liq('hres_liq_lw_mie_gamma_aeq12.nc',
+                'ecckd_band_liq_lw_mie_gamma_aeq12_thick.nc',
                 'ecckd_pade_liq_lw_mie_gamma_aeq12_thick.nc',
-                12, wavenum, source, band_limit, re_range_lut, re_range_pade,
-                re_ref_pade, False)
+                12, wavenum, source, band_limit, re_range_pade,
+                re_ref_pade, True)
 
     # initialize shortwave band limits that matches with rrtmgp gas optics
     band_limit = np.array([[  250., 2600.],
@@ -57,9 +58,10 @@ def main():
     source = interp1d(wavenum_solar[:], solar[:])(wavenum[:])
 
     # generate parameterization for shortwave liquid
-    compute_liq('ecckd_lut_liq_sw_mie_gamma_aeq12_thick.nc',
+    compute_liq('hres_liq_sw_mie_gamma_aeq12.nc',
+                'ecckd_band_liq_sw_mie_gamma_aeq12_thick.nc',
                 'ecckd_pade_liq_sw_mie_gamma_aeq12_thick.nc',
-                12, wavenum, source, band_limit, re_range_lut, re_range_pade,
+                12, wavenum, source, band_limit, re_range_pade,
                 re_ref_pade, False)
 
 

@@ -56,9 +56,10 @@ def main():
 
     # generate parameterization for shortwave ice
     compute_ice(path_ori, 'solid_column', 50,
-                '25bands_lut_ice_sw_solid_column_severlyroughen_gamma_aeq1_thick.nc',
-                '25bands_pade_ice_sw_solid_column_severlyroughen_gamma_aeq1_thick.nc',
-                1, wavenum, source, band_limit, re_range_lut, re_range_pade,
+                'hres_ice_sw_solid_column_severlyroughen_gamma_aeq1.nc',
+                '25band_lut_ice_sw_solid_column_severlyroughen_gamma_aeq1_thick.nc',
+                '25band_pade_ice_sw_solid_column_severlyroughen_gamma_aeq1_thick.nc',
+                1, wavenum, source, band_limit, re_range_pade,
                 re_ref_pade,False)
 
 

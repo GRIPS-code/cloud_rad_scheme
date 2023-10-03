@@ -46,9 +46,10 @@ def main():
     source = interp1d(wavenum_solar[:], solar[:])(wavenum[:])
 
     # generate parameterization for shortwave liquid
-    compute_liq('25bands_lut_liq_sw_mie_gamma_aeq12_thick.nc',
-                '25bands_pade_liq_sw_mie_gamma_aeq12_thick.nc',
-                12, wavenum, source, band_limit, re_range_lut, re_range_pade,
+    compute_liq('hres_liq_sw_mie_gamma_aeq12.nc',
+                '25band_band_liq_sw_mie_gamma_aeq12_thick.nc',
+                '25band_pade_liq_sw_mie_gamma_aeq12_thick.nc',
+                12, wavenum, source, band_limit, re_range_pade,
                 re_ref_pade, False)
 
 

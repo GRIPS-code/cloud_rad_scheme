@@ -1,19 +1,25 @@
-from cloud_rad_scheme import compute_liq, planck, read_solar_spectrum, compute_existingLUT
+from cloud_rad_scheme import compute_liq, planck, read_solar_spectrum, compute_existingLUT, create_list
 from cloud_rad_scheme.optics import optics_var
 import numpy as np
 import math
 from scipy.interpolate import interp1d
 
-rau = 996*10**3 
+rau = 917*10**3 
 def main():
     # initialize parameterization size range for look-up-table and Padé approximantsize
-    re_range_lut = np.zeros((2,61)) # look-up-table (piecewise linear coefficients) size range, micron
-    re_range_lut[0,:] = np.arange(4.2,16.4,0.2)
-    re_range_lut[1,:] = np.arange(4.4,16.6,0.2)
-    re_range_pade=np.zeros((2,2))
-    re_range_pade[0,:] = [4.2, 8]
-    re_range_pade[1,:] = [8, 16.6]
+    re_range_pade=np.zeros((2,5))
+    re_range_pade[0,:] = [4.2, 8., 16.6,  100.,  1000.]
+    re_range_pade[1,:] = [8., 16.6, 100., 1000., 5000.]
     re_ref_pade = np.zeros(np.shape(re_range_pade)[1],)
+
+    flag_nolwscat = True
+    
+    r = np.append(np.append(np.arange(4.2,16.6,0.1),np.arange(16.6,100.,1.)),np.arange(110,5000.,20.))
+    d = r*2.0
+    s = np.power(r, 2) * math.pi
+    v = np.power(r, 3) * math.pi * 4.0 / 3.0
+    range_cloud = np.where(r<=16.6)
+    range_precip = np.where(r>16.6)
 
     # initialize longwave band limits that matches with rrtmgp gas optics
     band_limit = np.array([[  10.,  250.],
@@ -36,13 +42,8 @@ def main():
 
     # initialize longwave source function
     source = planck(wavenum, 250) # use 250 K as a reference
-    # generate parameterization for longwave liquid
 
     # Held 
-    r = np.arange(4.2,16.6,0.1)
-    s = np.power(r, 2) * math.pi
-    v = np.power(r, 3) * math.pi * 4.0 / 3.0
-
     nsize = len(r)
     nwav = len(wavenum)
     ext_in = np.zeros((nsize,nwav))
@@ -50,20 +51,66 @@ def main():
     ssa_in = np.zeros((nsize,nwav))
     asy_in = np.zeros((nsize,nwav))
 
-    ext_in[:] = 0.1
-    sca_in[:] = 0.0
-    asy_in[:] = 1.0
+    ext_in[:,:] = 0.1
+    sca_in[:,:] = 0.0
+    asy_in[:,:] = 1.0
 
-    cloud_optics_in=optics_var(r, s, v,
-               ext_in, sca_in, ssa_in, asy_in, rau,
+    optics_cloud=optics_var(r[range_cloud], s[range_cloud], v[range_cloud],
+               ext_in[range_cloud,:], sca_in[range_cloud,:], ssa_in[range_cloud,:], asy_in[range_cloud,:], rau,
                wavenum)
+    optics_cloud_band = optics_cloud.thin_average(source,band_limit)
+
+    # Fu rain lw
+    #the absorption coefficient for 
+   # rain water for longwave radiation (Fu et al., 1995, J. Atmos. Sci.)
+   # it is designed for use with rain drops with radii between 60 um 
+   # and 1.8 mm. see also notes from Q. Fu (4 Sept 98). note that the 
+   # size of the rain water from the microphysical model (if existing) 
+   # does not enter into the calculations.
+   # Leo Donner, GFDL, 20 Mar 99
+    # generate parameterization for shortwave liquid
+
+    brn = np.array([1.6765,  1.6149,  1.5993,  1.5862,  1.5741,  1.5647,
+             1.5642,  1.5600,  1.5559,  1.5512,  1.5478,  1.5454])
     
-    compute_existingLUT(cloud_optics_in,
-                        'lut_liq_lw_held_thick.nc', 
-                        'pade_liq_lw_held_thick.nc',
-                        source, 
-                        band_limit,re_range_lut,
-                        re_range_pade, re_ref_pade, True)
+    wrnf = np.array([.55218,  .55334,  .55488,  .55169,  .53859,  .51904, 
+              .52321,  .52716,  .52969,  .53192,  .52884,  .53233])
+    
+    grn = np.array([.90729,  .92990,  .93266,  .94218,  .96374,  .98584,   
+              .98156,  .97745,  .97467,  .97216,  .97663,  .97226 ])
+    
+    rwc0 = 0.5
+
+    band_in =   np.array([280,    400,    540,   670,  800,  980,  1100,  1250, 
+                1400,   1700,   1900,   2200])
+
+    nsize = len(r)
+    nwav = len(band_in)
+    ext_in = np.zeros((nsize,nwav))
+    sca_in = np.zeros((nsize,nwav))
+    ssa_in = np.zeros((nsize,nwav))
+    asy_in = np.zeros((nsize,nwav))
+
+    if flag_nolwscat: 
+        ext_in[:,:] = brn/rwc0/1000* (1-wrnf)
+        ssa_in[:,:] = 0.0 #wrnf
+        asy_in[:,:] = 1.0 #grn
+    else:
+        ext_in[:,:] = brn/rwc0/1000
+        ssa_in[:,:] = wrnf
+        asy_in[:,:] = grn
+    sca_in[:,:] = ext_in[:,:] * ssa_in[:,:]
+
+    optics_precip=optics_var(r[range_precip], s[range_precip], v[range_precip],
+               ext_in[range_precip,:], sca_in[range_precip,:], ssa_in[range_precip,:], asy_in[range_precip,:], rau,
+               band_limit=band_in)
+    optics_precip=optics_precip.band2wav_cloud_optics(wavenum)
+    optics_precip_band = optics_precip.thin_average(source,band_limit)
+    
+    v_range_pade = re_range_pade **3.0 * 4.0 / 3.0 * math.pi
+
+    optics_band = optics_var.combine(optics_cloud_band,optics_precip_band)
+    optics_band.create_pade_coeff(re_range_pade,re_ref_pade,v_range_pade,'pade_liq_lw_AM4MG2_noscat_thick.nc')
     
     ################################
     # initialize shortwave band limits that matches with rrtmgp gas optics
@@ -88,9 +135,6 @@ def main():
 
     # Slingo
     # generate parameterization for shortwave liquid
-    r = np.arange(4.2,16.6,0.1)
-    s = np.power(r, 2) * math.pi
-    v = np.power(r, 3) * math.pi * 4.0 / 3.0
     a = np.array([-1.023E+00, 1.950E+00, 1.579E+00, 1.850E+00, 1.970E+00, 
         2.237E+00, 2.463E+00, 2.551E+00, 2.589E+00, 2.632E+00, 
         2.497E+00, 2.622E+00, 2.650E+00, 3.115E+00, 2.895E+00, 
@@ -139,17 +183,45 @@ def main():
         asy_in[i,:] = e + 1.0E-03* f * r[i]
         sca_in[i,:] = ext_in[i,:] * ssa_in[i,:]
 
-    cloud_optics_in=optics_var(r, s, v,
-               ext_in, sca_in, ssa_in, asy_in, rau,
+    optics_cloud=optics_var(r[range_cloud], s[range_cloud], v[range_cloud],
+               ext_in[range_cloud,:], sca_in[range_cloud,:], ssa_in[range_cloud,:], asy_in[range_cloud,:], rau,
                band_limit=band_in)
+    optics_cloud=optics_cloud.band2wav_cloud_optics(wavenum)
+    optics_cloud_band = optics_cloud.thick_average(source,band_limit)
     
-    compute_existingLUT(cloud_optics_in.band2wav_cloud_optics(wavenum),
-                        'lut_liq_sw_slingo_thick.nc', 
-                        'pade_liq_sw_slingo_thick.nc',
-                        source, 
-                        band_limit,re_range_lut,
-                        re_range_pade, re_ref_pade, False)
+    a = np.array([4.65E-01, 2.64E-01, 1.05E-02, 8.00E-05])
+    
+    b = np.array([1.00E-03, 9.00E-02, 2.20E-01, 2.30E-01])
+    
+    asymm = np.array([ 9.70E-01, 9.40E-01, 8.90E-01, 8.80E-01])
 
+    band_in =   np.array([4202, 8403, 14493, 57600])
+    
+    nsize = len(r)
+    nwav = len(band_in)
+    ext_in = np.zeros((nsize,nwav))
+    sca_in = np.zeros((nsize,nwav))
+    ssa_in = np.zeros((nsize,nwav))
+    asy_in = np.zeros((nsize,nwav))
+    
+    rcap = pow(r/500, 4.348E+00)
+
+    for i in range(nsize):
+        ext_in[i,:] = 1.505E+00/r[i] 
+        ssa_in[i,:] = 1.0 - (a * rcap[i] ** b)
+        asy_in[i,:] = asymm
+        sca_in[i,:] = ext_in[i,:] * ssa_in[i,:]
+
+    optics_precip=optics_var(r[range_precip], s[range_precip], v[range_precip],
+               ext_in[range_precip,:], sca_in[range_precip,:], ssa_in[range_precip,:], asy_in[range_precip,:], rau,
+               band_limit=band_in)
+
+    optics_precip=optics_precip.band2wav_cloud_optics(wavenum)
+    optics_precip_band = optics_precip.thick_average(source,band_limit)
+    v_range_pade = re_range_pade **3.0 * 4.0 / 3.0 * math.pi
+
+    optics_band = optics_var.combine(optics_cloud_band,optics_precip_band)
+    optics_band.create_pade_coeff(re_range_pade,re_ref_pade,v_range_pade,'pade_liq_sw_AM4MG2_thick.nc')
 
 if __name__ == "__main__":
     main()
