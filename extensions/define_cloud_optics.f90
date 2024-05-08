@@ -7,7 +7,7 @@
 !   Required input: file generated from example_ice.py and example_liq.py 
 ! -------------------------------------------------------------------------------------------------
 
-module rrtmgp_cloud_optics
+module define_cloud_optics
   use fms_mod, only: error_mesg, fatal, NOTE, string
   use mo_rte_kind,      only: wp, wl
   use mo_rte_util_array,only: any_vals_less_than, any_vals_outside, extents_are
@@ -32,13 +32,6 @@ module rrtmgp_cloud_optics
     ! Spectral discretization
     real(wp), public :: rad_lwr = 0._wp, rad_upr = 0._wp
     !
-    ! look-up-table coefficients
-    !
-    real(wp), dimension(:,:), allocatable :: lut_ext_a, lut_ssa_a, lut_asy_a ! (nbnd, nsizereg)
-    real(wp), dimension(:,:), allocatable :: lut_ext_b, lut_ssa_b, lut_asy_b ! (nbnd, nsizereg)
-    ! Particle size regimes for Pade formulations
-    real(wp), dimension(:,:), allocatable :: lut_sizereg  ! (2,nsize)
-    !
     ! Pade approximant coefficients
     !
     real(wp), dimension(:,:,:), allocatable :: pade_ext_p, pade_ssa_p, pade_asy_p ! (nbnd, nsizereg, n)
@@ -48,15 +41,14 @@ module rrtmgp_cloud_optics
     real(wp), dimension(:),   allocatable :: pade_sizeref  ! (nsize)
     ! -----
   contains
-    generic,   public :: load  => load_pade, load_lut 
+    generic,   public :: load  => load_pade
     procedure, public :: finalize
 !   procedure, public :: cloud_optics
     procedure, public :: get_min_radius
     procedure, public :: get_max_radius
     procedure, public :: compute_all_from_pade
-    procedure, public :: compute_all_from_lut
     ! Internal procedures
-    procedure, private :: load_pade, load_lut
+    procedure, private :: load_pade
   end type ty_cloud_optics
    
 contains
@@ -137,75 +129,6 @@ contains
     !
     !
   end function load_pade
-
-! ------------------------------------------------------------------------------
-  !
-  ! Cloud optics initialization function:  Look-up-table
-  !   coeff = a + b * effective radi [micron]
-  !   ext: Extinction coefficient [m^2/g]
-  !   ssa: Single-scattering albedo
-  !   asy: Asymmetry factor
-  ! ------------------------------------------------------------------------------
-  function load_lut(this, band_lims_wvn, &
-                     lut_ext_a, lut_ssa_a, lut_asy_a, &
-                     lut_ext_b, lut_ssa_b, lut_asy_b, &
-                     lut_sizereg) result(error_msg)
-
-    class(ty_cloud_optics),       intent(inout) :: this          ! cloud specification data
-    real(wp), dimension(:,:),     intent(in   ) :: band_lims_wvn ! Spectral discretization
-    !
-    ! lut coefficients: extinction, single-scattering albedo, and asymmetry factor for liquid and ice
-    !
-    real(wp), dimension(:,:),   intent(in)    :: lut_ext_a, lut_ssa_a, lut_asy_a
-    real(wp), dimension(:,:),   intent(in)    :: lut_ext_b, lut_ssa_b, lut_asy_b
-    !
-    ! Boundaries of size regimes. Liquid and ice are separate;
-    !   extinction is fit to different numbers of size bins than single-scattering albedo and asymmetry factor
-    !
-    real(wp),  dimension(:,:),       intent(in)    :: lut_sizereg
-    character(len=128)    :: error_msg
-! ------- Local -------
-
-    integer               :: nbnd, nsizereg, n, m
-
-! ------- Definitions -------
-    error_msg = this%init(band_lims_wvn, name="RRTMGP cloud optics")
-
-    ! Pade coefficient dimensions
-    nbnd         = size(lut_ext_a,dim=1)
-    nsizereg     = size(lut_ext_a,dim=2)
-
-    this%nbnd = nbnd
-    this%nsizereg = nsizereg
-    this%band_lims_wvn = band_lims_wvn
-    this%rad_lwr = lut_sizereg(1,1)
-    this%rad_upr = lut_sizereg(2,nsizereg)
-    !
-    ! Allocate Pade coefficients
-    !
-    allocate(this%lut_ext_a(nbnd, nsizereg),   &
-             this%lut_ssa_a(nbnd, nsizereg), &
-             this%lut_asy_a(nbnd, nsizereg), &
-             this%lut_ext_b(nbnd, nsizereg),   &
-             this%lut_ssa_b(nbnd, nsizereg), &
-             this%lut_asy_b(nbnd, nsizereg))
-    !
-    ! Allocate Pade coefficient particle size regime boundaries
-    !
-    allocate(this%lut_sizereg(2,nsizereg))
-      !$acc kernels
-    this%lut_ext_a = lut_ext_a
-    this%lut_ssa_a = lut_ssa_a
-    this%lut_asy_a = lut_asy_a
-    this%lut_ext_b = lut_ext_b
-    this%lut_ssa_b = lut_ssa_b
-    this%lut_asy_b = lut_asy_b
-    this%lut_sizereg = lut_sizereg
-    !$acc end kernels
-    !
-    !
-  end function load_lut
-
   !--------------------------------------------------------------------------------------------------------------------
   !
   ! Finalize
@@ -222,11 +145,6 @@ contains
       deallocate(this%pade_ext_p, this%pade_ssa_p, this%pade_asy_p, &
                  this%pade_ext_q, this%pade_ssa_q, this%pade_asy_q, &
                  this%pade_sizereg)
-    end if
-    if(allocated(this%lut_ext_a)) then
-      deallocate(this%lut_ext_a, this%lut_ssa_a, this%lut_asy_a, &
-                 this%lut_ext_b, this%lut_ssa_b, this%lut_asy_b, &
-                 this%lut_sizereg)
     end if
   end subroutine finalize
 
@@ -319,73 +237,6 @@ contains
     endwhere
   end subroutine compute_all_from_pade
 
-  !---------------------------------------------------------------------------
-    subroutine compute_all_from_lut(this, nlay, ibnd,  &
-                                   mask, lwp, re,  &
-                                   tau, ssa, g)
-    class(ty_cloud_optics), intent(inout) :: this
-    integer,                        intent(in) :: nlay, ibnd
-    logical(wl),  &
-              dimension(nlay), intent(in) :: mask
-    real(wp), dimension(nlay), intent(in) :: lwp, re ! Cloud water path: [kg/kg] * [g/m^3] * [m] = [g/m^2]
-                                                          ! Effective radius: microns
-    real(wp), dimension(:), intent(inout) :: tau, ssa, g ! [nlya, number of output gpoints]
-    ! ---------------------------
-    integer  :: ilay,  irad, count
-    real(wp) :: t, ts
-
-    tau   (:) = 0._wp
-    ssa   (:) = 0._wp
-    g     (:) = 0._wp
-    !$acc parallel loop gang vector default(present) collapse(3)
-      do ilay = 1, nlay
-          if(mask(ilay)) then
-            !
-            ! Finds index into size regime table
-            !
-            do irad = 1, this%nsizereg
-                if (this%lut_sizereg(1,irad) .le. re(ilay) .AND. this%lut_sizereg(2,irad) .ge. re(ilay)) then
-                        exit
-                endif
-            enddo
-
-            if (irad .gt. this%nsizereg) call  error_mesg('compute_all_from_lut:','re out of range',fatal)
-            tau (ilay)  = lwp(ilay) *     &
-                 use_lut(ibnd, this%nbnd, this%nsizereg, irad, re(ilay), this%lut_ext_a, this%lut_ext_b)
-
-            ssa (ilay)  = &
-                 use_lut(ibnd, this%nbnd, this%nsizereg, irad, re(ilay), this%lut_ssa_a, this%lut_ssa_b)
-
-            g   (ilay)  =  &
-                 use_lut(ibnd, this%nbnd, this%nsizereg, irad, re(ilay), this%lut_asy_a, this%lut_asy_b)
-            !if (tau(ilay) .le. 0) call error_mesg('compute_all_from_lut:', 'negative tau', fatal)
-            !if (ssa(ilay) .le. 0) call error_mesg('compute_all_from_lut:', 'negative ssa', fatal)
-            !if (g(ilay) .le. 0) call error_mesg('compute_all_from_lut:', 'negative g', fatal)
-            !if (ssa(ilay) .gt. 1) call error_mesg('compute_all_from_lut:', 'ssa>1', fatal)
-            !if (g(ilay) .gt. 1) call error_mesg('compute_all_from_lut:', 'g>1', fatal)
-          end if
-        end do
-
-    where(g(:) .gt. 1._wp)
-      g(:) = 1._wp ! pade approximate may produce out-of-range values for g
-    endwhere
-
-    where(ssa(:) .gt. 1._wp)
-      ssa(:) = 1._wp ! pade approximate may produce out-of-range values for g
-    endwhere
-
-    where(ssa(:) .lt. 0._wp)
-      ssa(:) = 0._wp ! pade approximate may produce negative values for g
-    endwhere
-
-    where(g(:) .lt. 0._wp)
-      g(:) = 0._wp ! pade approximate may produce negative values for g
-    endwhere
-  end subroutine compute_all_from_lut
-  !---------------------------------------------------------------------------
-  !
-  ! Evaluate Pade approximant of order [n,m]
-  !
   function pade_eval_nbnd(nbnd, nrads, n, m, irad, re,  pade_coeffs_p, pade_coeffs_q)
     integer,                intent(in) :: nbnd, nrads, m, n, irad
     real(wp), dimension(nbnd, nrads, n), &
@@ -444,18 +295,4 @@ contains
     pade_eval_1 = numer/denom
   end function pade_eval_1
 
-  function use_lut(iband, nbnd, nrads, irad, re, lut_coeffs_a, lut_coeffs_b) result(output)
-    !$acc routine seq
-    !
-    integer,                intent(in) :: iband, nbnd, nrads, irad
-    real(wp), dimension(nbnd, nrads), &
-                            intent(in) :: lut_coeffs_a
-    real(wp), dimension(nbnd, nrads), &
-                            intent(in) :: lut_coeffs_b
-    real(wp),               intent(in) :: re
-    real(wp)                           :: output
-
-    output = lut_coeffs_a(iband,irad) + lut_coeffs_b(iband,irad) * re
-  end function use_lut
-
-end module rrtmgp_cloud_optics
+end module define_cloud_optics
