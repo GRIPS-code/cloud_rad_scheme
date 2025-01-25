@@ -1,0 +1,3 @@
+hres* are high spectral resolution look up tables generated at 1 cm-1 resolution in the longwave and 10 cm-1 resolution in the shortwave.
+band* are band-by-band look up tables generated at RRTMGP bands
+pade* are parameterization files with Padé approximant for direct GCM implementation. Example code to read these parameterization files are provided under ../extensions/
