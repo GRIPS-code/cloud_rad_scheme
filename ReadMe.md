@@ -24,6 +24,9 @@ See example_ice.py and example_liq.py
 `python3 example_liq.py`
 
 ## Output: parameterization coefficients over effective radii for given spectral bands
+
+Examples of output files for high-reoslution look up tables and parameterizations at RRTMGP band are provided under example_output/ directory
+
 1. Look-up-table coefficients for ice and liquid. 
 
 Output from example_ice.py:
