@@ -11,12 +11,12 @@ def main():
     format: *.tar.gz file for FIR, Rough*.tar.gz for MIR.
     """
     # This line is ignored if ./data/MIR and ./data.FIR contain required files
-    path_ori = '/scratch/gpfs/jf7775/data/ice_optics_yang/' 
+    path_ori = '/home/jf7775/workspace/cloud_rad_scheme_py/data/voronoi/output_rmax.nc' 
 
     # initialize parameterization size range for look-up-table and Padé approximantsize
-    re_range_pade = np.zeros((2,5)) # Padé approximantsize size range, micron
-    re_range_pade[0,:] = [2.5,  15., 50., 100., 500.]
-    re_range_pade[1,:] = [15., 50., 100., 500., 5000.] 
+    re_range_pade = np.zeros((2,4)) # Padé approximantsize size range, micron
+    re_range_pade[0,:] = [2.5,  15., 50., 100.]
+    re_range_pade[1,:] = [15., 50., 100., 500.] 
     re_ref_pade = np.zeros(np.shape(re_range_pade)[1],)
 
     # initialize longwave band limits that matches with rrtmgp gas optics
@@ -44,11 +44,11 @@ def main():
 
     # generate parameterization for longwave ice
     compute_ice(path_ori,
-                'hres_ice_lw_plate_10elements_severlyroughen_gamma_aeq1.nc',
-                'band_ice_lw_plate_10elements_severlyroughen_gamma_aeq1_thick_250K.nc',
-                'pade_ice_lw_plate_10elements_severlyroughen_gamma_aeq1_thick_250K.nc',
+                'hres_ice_lw_voronoi_gamma_aeq1.nc',
+                'band_ice_lw_voronoi_gamma_aeq1_thick_250K.nc',
+                'pade_ice_lw_voronoi_gamma_aeq1_thick_250K.nc',
                 1, wavenum, source, band_limit, re_range_pade,
-                re_ref_pade, True, 'Yang','plate_10elements', 50)
+                re_ref_pade, True, 'Voronoi')
 
     # initialize shortwave band limits that matches with rrtmgp gas optics
     band_limit = np.array([[  820., 2680.], 
@@ -73,11 +73,11 @@ def main():
 
     # generate parameterization for shortwave ice
     compute_ice(path_ori,
-                'hres_ice_sw_plate_10elements_severlyroughen_gamma_aeq1.nc',
-                'band_ice_sw_plate_10elements_severlyroughen_gamma_aeq1_thick.nc',
-                'pade_ice_sw_plate_10elements_severlyroughen_gamma_aeq1_thick.nc',
+                'hres_ice_sw_voronoi_gamma_aeq1.nc',
+                'band_ice_sw_voronoi_gamma_aeq1_thick.nc',
+                'pade_ice_sw_voronoi_gamma_aeq1_thick.nc',
                 1, wavenum, source, band_limit, re_range_pade,
-                re_ref_pade,False, 'Yang','plate_10elements', 50)
+                re_ref_pade,False, 'Voronoi')
 
 
 if __name__ == "__main__":

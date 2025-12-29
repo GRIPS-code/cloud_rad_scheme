@@ -5,9 +5,10 @@ from scipy.interpolate import interp1d
 from .spec_util import create_list
 from .optics import optics_var
 from .read_yang_ice_library import read_yang_ice_library
+from .read_voronoi_ice import read_voronoi_ice
 
-def compute_ice(path_ori, habit, roughness, file_outres, file_band, file_pade, a, wavenum_out, source,
-                band_limit, re_range_pade, re_ref_pade, thin_flag):
+def compute_ice(path_ori, file_outres, file_band, file_pade, a, wavenum_out, source,
+                band_limit, re_range_pade, re_ref_pade, thin_flag, library='Yang',habit='solid_bullet_rosette', roughness=50):
     rau = 917*10**3 # ice density g/m**3
     nwav = len(wavenum_out)
     r = create_list(1,10000,20)
@@ -16,15 +17,22 @@ def compute_ice(path_ori, habit, roughness, file_outres, file_band, file_pade, a
     v = np.zeros((nr,))
     s = np.zeros((nr,))
 
-    [wavenum_in, r_in, d_in, s_in, v_in, ext_cross_section_in, sca_cross_section_in, asy_in] =\
-        read_yang_ice_library(path_ori, habit, roughness)
+    match library:
+        case 'Yang':
+            [wavenum_in, r_in, d_in, s_in, v_in, ext_cross_section_in, sca_cross_section_in, asy_in] =\
+            read_yang_ice_library(path_ori, habit, roughness)
+        case 'Voronoi':
+            [wavenum_in, r_in, d_in, s_in, v_in, ext_cross_section_in, sca_cross_section_in, asy_in] =\
+            read_voronoi_ice(path_ori)
+
     nwav = len(wavenum_in)
     asy = np.zeros((nr,nwav))
     ext = np.zeros((nr,nwav)) 
     ssa = np.zeros((nr,nwav))
     sca = np.zeros((nr,nwav))
+
     for i in range(nr):
-        r_out[i], s[i], v[i], ext[i,:], sca[i,:], ssa[i,:], asy[i,:] = compute_Yang_singlesize(a,2.0*r[i],rau,wavenum_in,wavenum_in,d_in, s_in, v_in, ext_cross_section_in, sca_cross_section_in, asy_in)
+        r_out[i], s[i], v[i], ext[i,:], sca[i,:], ssa[i,:], asy[i,:] = compute_singlesize(a,2.0*r[i],rau,wavenum_in,wavenum_in,d_in, s_in, v_in, ext_cross_section_in, sca_cross_section_in, asy_in)
     optics_outres=optics_var(r_out, s, v, ext, sca, ssa, asy, rau, wavenum=wavenum_in)
     optics_outres.write_lut_spectralpoints(file_outres)
 
@@ -35,7 +43,7 @@ def compute_ice(path_ori, habit, roughness, file_outres, file_band, file_pade, a
     sca = np.zeros((nr,nwav))
     # Mie Theory & integrate over gamma PSD
     for i in range(nr):
-        r_out[i], s[i], v[i], ext[i,:], sca[i,:], ssa[i,:], asy[i,:] = compute_Yang_singlesize(a,2.0*r[i],rau,wavenum_out,wavenum_in,d_in, s_in, v_in, ext_cross_section_in, sca_cross_section_in, asy_in)
+        r_out[i], s[i], v[i], ext[i,:], sca[i,:], ssa[i,:], asy[i,:] = compute_singlesize(a,2.0*r[i],rau,wavenum_out,wavenum_in,d_in, s_in, v_in, ext_cross_section_in, sca_cross_section_in, asy_in)
     optics_outres=optics_var(r_out, s, v, ext, sca, ssa, asy, rau, wavenum=wavenum_out)
 
     if thin_flag==True:
@@ -48,18 +56,19 @@ def compute_ice(path_ori, habit, roughness, file_outres, file_band, file_pade, a
     try:
         v_range[0,:] = interp1d(optics_band.r,optics_band.v**(1/3.0))(re_range_pade[0,:])**3
     except:
-        print('WARNING: Padé approximant size range re_range exceeds lower-limit at '+'{:4.1f}'.format(optics_band.r[0])+' microns')
+        #print('WARNING: Padé approximant size range re_range exceeds lower-limit at '+'{:4.1f}'.format(optics_band.r[0])+' microns')
         v_range[0,:] = interp1d(optics_band.r,optics_band.v**(1/3.0),fill_value="extrapolate")(re_range_pade[0,:])**3
     try:
         v_range[1,:] = interp1d(optics_band.r,optics_band.v**(1/3.0))(re_range_pade[1,:])**3
     except:
-        print('WARNING: Padé approximant size range re_range exceeds upper-limit at '+'{:4.1f}'.format(optics_band.r[-1])+' microns')
+        #print('WARNING: Padé approximant size range re_range exceeds upper-limit at '+'{:4.1f}'.format(optics_band.r[-1])+' microns')
         v_range[1,:] = interp1d(optics_band.r,optics_band.v**(1/3.0),fill_value="extrapolate")(re_range_pade[1,:])**3
     # output parameterization netcdf file following Padé approximant
+
     optics_band.create_pade_coeff(re_range_pade,re_ref_pade,v_range,file_pade)
 
 
-def compute_Yang_singlesize(a,d,rau,wavenum_out,wavenum_in,d_in, s_in, v_in, ext_cross_section_in, sca_cross_section_in, asy_in):
+def compute_singlesize(a,d,rau,wavenum_out,wavenum_in,d_in, s_in, v_in, ext_cross_section_in, sca_cross_section_in, asy_in):
     nwav = len(wavenum_in)
     dr = min(d/100.0,1) # um, integrate step of particle size
     d_hres = np.append(np.array([]), np.arange(dr, d*3.5, dr)) # radius
@@ -81,7 +90,7 @@ def compute_Yang_singlesize(a,d,rau,wavenum_out,wavenum_in,d_in, s_in, v_in, ext
         scat_hres = interp1d(s_in[:], sca_cross_section_in[:,:], axis=1)(s_hres[:])
         asy_hres = interp1d(s_in[:], asy_in[:,:]*sca_cross_section_in[:,:], axis=1)(s_hres[:])/scat_hres
     except:
-        print('WARNING: Yang[2013] library is being extrapolated out of the size range')
+        #print(f'WARNING: Ice library is being extrapolated out of the size range from [{d_in[0]} {d_in[-1]}] to [{d_hres[0]} {d_hres[1]}] um')
         v_hres = interp1d(d_in[:], v_in[:]**(1/3.0),fill_value="extrapolate")(d_hres[:])**3.0
         s_hres = interp1d(d_in[:], s_in[:]**(1/2.0),fill_value="extrapolate")(d_hres[:])**2.0
         ext_hres = interp1d(s_in[:], ext_cross_section_in[:,:], axis=1, fill_value="extrapolate")(s_hres[:])

@@ -12,7 +12,7 @@ def main():
     re_range_pade[1,:] = [8., 16.6, 100., 1000., 5000.]
     re_ref_pade = np.zeros(np.shape(re_range_pade)[1],)
 
-    flag_nolwscat = True
+    flag_nolwscat = False
     
     r = np.append(np.append(np.arange(4.2,16.6,0.1),np.arange(16.6,100.,1.)),np.arange(110,5000.,20.))
     d = r*2.0
@@ -110,7 +110,7 @@ def main():
     v_range_pade = re_range_pade **3.0 * 4.0 / 3.0 * math.pi
 
     optics_band = optics_var.combine(optics_cloud_band,optics_precip_band)
-    optics_band.create_pade_coeff(re_range_pade,re_ref_pade,v_range_pade,'pade_liq_lw_AM4MG2_noscat_thick.nc')
+    optics_band.create_pade_coeff(re_range_pade,re_ref_pade,v_range_pade,'pade_liq_lw_AM4MG2_lwscat_thick.nc')
     
     ################################
     # initialize shortwave band limits that matches with rrtmgp gas optics

@@ -137,13 +137,13 @@ class optics_var(object):
         for i in range(nsize):
             f = np.zeros(np.shape(scat_cross_section_in))
             f[:,:] = gamma.pdf(d_in,a[i],0,b[i])
-            int_f_over_r = np.sum(f[0,:] * dr)
-            int_f_over_v = np.sum(f[0,:] * v_in[:] * dr)
-            asy[i,:] = np.sum(f * asy_in * scat_cross_section_in * dr, axis=1)/np.sum(f * scat_cross_section_in * dr, axis = 1)
-            ext[i,:] = np.sum(f * ext_cross_section_in * dr, axis=1)/int_f_over_v/rau * m_to_micron # m**2/m**3/g*m**3 = m**2/g
-            sca[i,:] = np.sum(f * scat_cross_section_in * dr, axis=1)/int_f_over_v/rau * m_to_micron # m**2/m**3/g*m**3 = m**2/g
-            v[i] = np.sum(f[0,:] * v_in[:] * dr)/int_f_over_r # m**3
-            s[i] = np.sum(f[0,:] * s_in[:] * dr)/int_f_over_r # m**2
+            int_f_over_r = np.nansum(f[0,:] * dr)
+            int_f_over_v = np.nansum(f[0,:] * v_in[:] * dr)
+            asy[i,:] = np.nansum(f * asy_in * scat_cross_section_in * dr, axis=1)/np.nansum(f * scat_cross_section_in * dr, axis = 1)
+            ext[i,:] = np.nansum(f * ext_cross_section_in * dr, axis=1)/int_f_over_v/rau * m_to_micron # m**2/m**3/g*m**3 = m**2/g
+            sca[i,:] = np.nansum(f * scat_cross_section_in * dr, axis=1)/int_f_over_v/rau * m_to_micron # m**2/m**3/g*m**3 = m**2/g
+            v[i] = np.nansum(f[0,:] * v_in[:] * dr)/int_f_over_r # m**3
+            s[i] = np.nansum(f[0,:] * s_in[:] * dr)/int_f_over_r # m**2
         r = v / s * 0.75 
         ssa = sca/ext
         result = optics_var(r, s, v, ext, sca, ssa, asy, rau, wavenum=wavenum)
@@ -159,13 +159,13 @@ class optics_var(object):
         r_in = d_in/2 
         f = np.zeros(np.shape(s_in))
         f[:] = lognormpdf(r_in,mu,sigma)
-        int_f_over_r = np.sum(f[:] * dr)
-        int_f_over_v = np.sum(f[:] * v_in[:] * dr)
-        asy[:] = np.sum(f * asy_in * scat_cross_section_in * dr, axis=1)/np.sum(f * scat_cross_section_in * dr, axis = 1)
-        ext[:] = np.sum(f * ext_cross_section_in * dr, axis=1)/int_f_over_v/rau * m_to_micron # m**2/m**3/g*m**3 = m**2/g
-        sca[:] = np.sum(f * scat_cross_section_in * dr, axis=1)/int_f_over_v/rau * m_to_micron # m**2/m**3/g*m**3 = m**2/g
-        v = np.sum(f[:] * v_in[:] * dr)/int_f_over_r # m**3
-        s = np.sum(f[:] * s_in[:] * dr)/int_f_over_r # m**2
+        int_f_over_r = np.nansum(f[:] * dr)
+        int_f_over_v = np.nansum(f[:] * v_in[:] * dr)
+        asy[:] = np.nansum(f * asy_in * scat_cross_section_in * dr, axis=1)/np.nansum(f * scat_cross_section_in * dr, axis = 1)
+        ext[:] = np.nansum(f * ext_cross_section_in * dr, axis=1)/int_f_over_v/rau * m_to_micron # m**2/m**3/g*m**3 = m**2/g
+        sca[:] = np.nansum(f * scat_cross_section_in * dr, axis=1)/int_f_over_v/rau * m_to_micron # m**2/m**3/g*m**3 = m**2/g
+        v = np.nansum(f[:] * v_in[:] * dr)/int_f_over_r # m**3
+        s = np.nansum(f[:] * s_in[:] * dr)/int_f_over_r # m**2
         r = v / s * 0.75 
         ssa = sca/ext
         return r, s, v, ext, sca, ssa, asy
@@ -178,10 +178,12 @@ class optics_var(object):
         ssa_out = np.zeros((nsize, nwav))
         asy_out = np.zeros((nsize, nwav))
         for i in range(nsize):
-            ext_out[i,:] = interp1d(self.wavenum, self.ext[i,:],fill_value="extrapolate")(wavenum_out)
-            ssa_out[i,:] = interp1d(self.wavenum, self.ext[i,:]*self.ssa[i,:],fill_value="extrapolate")(wavenum_out)/ext_out[i,:]
-            asy_out[i,:] = interp1d(self.wavenum, self.ext[i,:]*self.ssa[i,:]*self.asy[i,:],fill_value="extrapolate")(wavenum_out)/ext_out[i,:]/ssa_out[i,:]
+            ext_out[i,:] = interp1d(self.wavenum, self.ext[i,:],bounds_error=False,fill_value=(self.ext[i, 0], self.ext[i, -1]))(wavenum_out)
+            ssa_out[i,:] = interp1d(self.wavenum, self.ext[i,:]*self.ssa[i,:],bounds_error=False,fill_value=(self.ext[i,0]*self.ssa[i,0],self.ext[i,-1]*self.ssa[i,-1]))(wavenum_out)/ext_out[i,:]
+            asy_out[i,:] = interp1d(self.wavenum, self.ext[i,:]*self.ssa[i,:]*self.asy[i,:],bounds_error=False,fill_value=(self.ext[i,0]*self.ssa[i,0]*self.asy[i,0],self.ext[i,-1]*self.ssa[i,-1]*self.asy[i,-1]))(wavenum_out)/ext_out[i,:]/ssa_out[i,:]
+        
         sca_out = ssa_out * ext_out
+
         result = optics_var(self.r, self.s, self.v,
                                   ext_out, sca_out, ssa_out, asy_out,self.rau,
                                   wavenum=wavenum_out)
@@ -224,6 +226,9 @@ class optics_var(object):
         ext_out = np.zeros((nsize, nband))
         sca_out = np.zeros((nsize, nband))
         asy_out = np.zeros((nsize, nband))
+        print(nband)
+        print(np.shape(source))
+        print(np.shape(self.ext))
         for i in range(nband):
             id_wave = np.where((self.wavenum[:]>=band_limit[i,0]) & (self.wavenum[:]<=band_limit[i,1]))
             ext_out[:,i] = convert_lblOD_to_band(source, self.ext,id_wave)
@@ -401,7 +406,6 @@ class optics_var(object):
                 for i in range(nband):
                     id = np.where((self.r>re_range[0,k]) & (self.r<=re_range[1,k]))
                     r_sample = self.r[id]
-                    #print(r_sample)
                     if check(np.squeeze(self.ext[id,i])):
                         f = piecewise(r_sample, np.squeeze(self.ext[id,i]))
                         pade_ext_p[:,k,i] = [0, f[0], f[1]]  # a + b*r

@@ -39,20 +39,7 @@ def main():
                 re_ref_pade, True)
 
     # initialize shortwave band limits that matches with rrtmgp gas optics
-    band_limit = np.array([[  820., 2680.],
-                               [ 2680., 3250.],
-                               [ 3250., 4000.],
-                               [ 4000., 4650.],
-                               [ 4650., 5150.],
-                               [ 5150., 6150.],
-                               [ 6150., 7700.],
-                               [ 7700., 8050.],
-                               [ 8050., 12850.],
-                               [12850., 16000.],
-                               [16000., 22650.],
-                               [22650., 29000.],
-                               [29000., 38000.],
-                               [38000., 50000.]])
+    band_limit = np.array([[  820.,  50000.]])
     wavenum = np.arange(band_limit[0,0], band_limit[-1,-1], 10)
     # read-in shortwave spectrum
     wavenum_solar, solar = read_solar_spectrum()
@@ -60,8 +47,8 @@ def main():
 
     # generate parameterization for shortwave liquid
     compute_liq('hres_liq_sw_mie_gamma_aeq1.nc',
-                 'band_liq_sw_mie_gamma_aeq1_thick.nc',
-                'pade_liq_sw_mie_gamma_aeq1_thick.nc',
+                 '1band_band_liq_sw_mie_gamma_aeq1_thick.nc',
+                '1band_pade_liq_sw_mie_gamma_aeq1_thick.nc',
                 1, wavenum, source, band_limit, re_range_pade,
                 re_ref_pade, False)
 

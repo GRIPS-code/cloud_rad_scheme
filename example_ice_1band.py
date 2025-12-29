@@ -43,28 +43,15 @@ def main():
     source = planck(wavenum, 250)
 
     # generate parameterization for longwave ice
-    compute_ice(path_ori,
-                'hres_ice_lw_plate_10elements_severlyroughen_gamma_aeq1.nc',
-                'band_ice_lw_plate_10elements_severlyroughen_gamma_aeq1_thick_250K.nc',
-                'pade_ice_lw_plate_10elements_severlyroughen_gamma_aeq1_thick_250K.nc',
+    compute_ice(path_ori, 'solid_bullet_rosette', 50,
+                'hres_ice_lw_solid_bullet_rosette_severlyroughen_gamma_aeq1.nc',
+                'band_ice_lw_solid_bullet_rosette_severlyroughen_gamma_aeq1_thick_250K.nc',
+                'pade_ice_lw_solid_bullet_rosette_severlyroughen_gamma_aeq1_thick_250K.nc',
                 1, wavenum, source, band_limit, re_range_pade,
-                re_ref_pade, True, 'Yang','plate_10elements', 50)
+                re_ref_pade, True)
 
     # initialize shortwave band limits that matches with rrtmgp gas optics
-    band_limit = np.array([[  820., 2680.], 
-                               [ 2680., 3250.], 
-                               [ 3250., 4000.], 
-                               [ 4000., 4650.],
-                               [ 4650., 5150.], 
-                               [ 5150., 6150.], 
-                               [ 6150., 7700.], 
-                               [ 7700., 8050.], 
-                               [ 8050., 12850.], 
-                               [12850., 16000.], 
-                               [16000., 22650.], 
-                               [22650., 29000.],
-                               [29000., 38000.],
-                               [38000., 50000.]])
+    band_limit = np.array([[  820., 50000.]])
 
     wavenum = np.arange(band_limit[0,0], band_limit[-1,-1], 10)
     # read-in shortwave spectrum
@@ -72,12 +59,12 @@ def main():
     source = interp1d(wavenum_solar[:], solar[:])(wavenum[:])
 
     # generate parameterization for shortwave ice
-    compute_ice(path_ori,
-                'hres_ice_sw_plate_10elements_severlyroughen_gamma_aeq1.nc',
-                'band_ice_sw_plate_10elements_severlyroughen_gamma_aeq1_thick.nc',
-                'pade_ice_sw_plate_10elements_severlyroughen_gamma_aeq1_thick.nc',
+    compute_ice(path_ori, 'solid_bullet_rosette', 50,
+                'hres_ice_sw_solid_bullet_rosette_severlyroughen_gamma_aeq1.nc',
+                '1band_band_ice_sw_solid_bullet_rosette_severlyroughen_gamma_aeq1_thick.nc',
+                '1band_pade_ice_sw_solid_bullet_rosette_severlyroughen_gamma_aeq1_thick.nc',
                 1, wavenum, source, band_limit, re_range_pade,
-                re_ref_pade,False, 'Yang','plate_10elements', 50)
+                re_ref_pade,False)
 
 
 if __name__ == "__main__":
